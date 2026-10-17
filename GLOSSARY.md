@@ -32,3 +32,6 @@ _Avoid_: Workout Routine, Daily Program
 조리 가용 시간, 식사 장소(홈쿡·편의점·외식/회식), 당일 훈련 일정에 맞춰 끼니 또는 일일 단위로 선택·조합하는 영양 및 식사 설계 단위(예: 5분 익스프레스, 1플레이트 홈쿡, 외식 디펜스 등). 상시 채택된 기본 식단 원칙인 `Protocol`과 구별된다.
 _Avoid_: Diet Plan, Menu, Recipe, Meal Routine
 
+**Recovery Module**:
+당일 신경계 각성도(야근·스트레스), 누적 신체 피로도, 가용 시간에 맞춰 취침 전 또는 낮 시간대에 선택·조합하여 수행하는 수면 유도 및 신경·대사 회복 설계 단위(예: 10분 긴급 셧다운, 30분 표준 윈드다운, 20분 파워 리셋냅, 60분 프리미엄 슬립 생츄어리 등). 상시 채택된 기본 수면 원칙인 `Protocol`과 구별된다.
+_Avoid_: Sleep Routine, Relaxation Habit, Night Program
