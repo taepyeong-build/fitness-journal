@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[PROTOTYPE] Phase 1 메조사이클 실행·로그 대시보드 UI 변형 비교</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #181f28;
+      --surface-2: #212a36;
+      --surface-3: #2a3544;
+      --border: #324052;
+      --text: #eef2f6;
+      --text-muted: #9aa7b8;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.14);
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.14);
+      --yellow: #eab308;
+      --yellow-bg: rgba(234, 179, 8, 0.14);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.14);
+      --radius: 12px;
+      --font: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+      --mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.5;
+      padding-bottom: 92px;
+      font-size: 14px;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Prototype Banner & Header */
+    .proto-banner {
+      background: linear-gradient(90deg, #1e293b, #0f172a);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .proto-badge {
+      background: #6366f1;
+      color: #fff;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-right: 8px;
+      font-size: 11px;
+    }
+
+    .top-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-title h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .phase-pill {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .day-selector-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    select, input[type="number"], input[type="time"], input[type="text"] {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13px;
+    }
+    input[type="number"] { width: 76px; font-family: var(--mono); }
+    input[type="time"] { font-family: var(--mono); }
+    button {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    button:hover { background: var(--surface-3); border-color: var(--accent); }
+    button.primary {
+      background: var(--accent);
+      color: #09131c;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Readiness Traffic Light Pills */
+    .traffic-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+    .traffic-green { background: var(--green-bg); color: var(--green); border-color: rgba(34, 197, 94, 0.4); }
+    .traffic-yellow { background: var(--yellow-bg); color: var(--yellow); border-color: rgba(234, 179, 8, 0.4); }
+    .traffic-red { background: var(--red-bg); color: var(--red); border-color: rgba(239, 68, 68, 0.4); }
+
+    /* Cards & Common Components */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--surface-3);
+      color: var(--text-muted);
+      font-family: var(--mono);
+    }
+
+    /* Live Markdown Diff Strip */
+    .md-preview-box {
+      background: #0b0f14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #a5f3fc;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .md-preview-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ================= VARIANT A: 2-Column Split Workbench ================= */
+    .variant-a-grid {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1640px;
+      margin: 0 auto;
+      align-items: start;
+    }
+    @media (max-width: 1120px) {
+      .variant-a-grid { grid-template-columns: 1fr; }
+    }
+    .col-stack { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ================= VARIANT B: 24h Circadian Streamline + Tabs ================= */
+    .variant-b-container {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+    .mode-tabs {
+      display: inline-flex;
+      background: var(--surface-2);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .mode-tab {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 8px 18px;
+      border-radius: 7px;
+      font-weight: 600;
+    }
+    .mode-tab.active {
+      background: var(--accent);
+      color: #09131c;
+    }
+    .timeline-stream {
+      position: relative;
+      padding-left: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .timeline-stream::before {
+      content: "";
+      position: absolute;
+      left: 9px;
+      top: 12px;
+      bottom: 12px;
+      width: 2px;
+      background: var(--border);
+    }
+    .stream-node {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+    .stream-node::before {
+      content: "";
+      position: absolute;
+      left: -24px;
+      top: 20px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+    }
+    .stream-time {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    /* ================= VARIANT C: Matrix-First Telemetry Sheet ================= */
+    .variant-c-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .hud-ribbon {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .hud-kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hud-val { font-size: 20px; font-weight: 800; font-family: var(--mono); color: var(--accent); }
+    .c-main-split {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 1120px) {
+      .c-main-split { grid-template-columns: 1fr; }
+    }
+
+    /* Module Briefing Cards */
+    .module-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+    .module-box.downshifted {
+      border-color: rgba(234, 179, 8, 0.6);
+      background: rgba(234, 179, 8, 0.06);
+    }
+    .module-box.hardstop {
+      border-color: rgba(239, 68, 68, 0.65);
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .module-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .module-name { font-weight: 700; font-size: 14px; }
+    .supp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .supp-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .supp-item input { margin-top: 3px; }
+
+    /* Table styling */
+    .log-table-wrap { overflow-x: auto; }
+    table.log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    table.log-table th, table.log-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    table.log-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      background: var(--surface-2);
+      font-size: 11.5px;
+    }
+    table.log-table tr.selected-row {
+      background: rgba(56, 189, 248, 0.11);
+      outline: 1px solid rgba(56, 189, 248, 0.45);
+    }
+    table.log-table tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+    }
+
+    /* Progression Gate List */
+    .gate-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .gate-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12.5px;
+    }
+    .gate-progress {
+      height: 6px;
+      background: var(--surface-3);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+    .gate-bar {
+      height: 100%;
+      background: var(--green);
+      transition: width 0.25s ease;
+    }
+
+    /* Native Dialog Drawer for Self-Contained Catalog */
+    dialog#catalog-drawer {
+      margin: 0 0 0 auto;
+      height: 100vh;
+      max-height: 100vh;
+      width: min(520px, 92vw);
+      background: var(--surface);
+      color: var(--text);
+      border: none;
+      border-left: 1px solid var(--border);
+      padding: 24px;
+      box-shadow: -12px 0 36px rgba(0, 0, 0, 0.6);
+    }
+    dialog#catalog-drawer::backdrop {
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(2px);
+    }
+    .drawer-step {
+      background: var(--surface-2);
+      border-left: 3px solid var(--accent);
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    /* Floating Prototype Switcher (Per UI.md spec) */
+    .proto-switcher {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #090d12;
+      border: 2px solid var(--accent);
+      border-radius: 999px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
+      z-index: 100;
+    }
+    .proto-switcher button {
+      background: var(--surface-2);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-weight: 700;
+    }
+    .proto-switcher-label {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #fff;
+      min-width: 270px;
+      text-align: center;
+    }
+    .proto-switcher-sub {
+      font-size: 11px;
+      color: var(--accent);
+      display: block;
+      font-weight: 500;
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-field label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Prototype Question Banner -->
+  <div class="proto-banner">
+    <div>
+      <span class="proto-badge">PROTOTYPE · Issue #27</span>
+      <strong>질문:</strong> 아침 신호등 판정 & 자동 다운시프트 · 당일 모듈 실행 브리핑(드로어) · 일일 기록 입력 · 4주 추이/게이트 열람이 어떤 레이아웃에서 가장 마찰 없이 동작하는가?
+    </div>
+    <div>키보드 <code>←</code> / <code>→</code> 또는 하단 플로팅 바로 레이아웃 전환 (`?variant=A|B|C`)</div>
+  </div>
+
+  <!-- Shared Top Context Bar -->
+  <header class="top-bar">
+    <div class="brand-title">
+      <span class="phase-pill">2026-10 Phase 1</span>
+      <h1>기초 적응 · 대사 점화 4주 메조사이클</h1>
+    </div>
+
+    <div class="day-selector-group">
+      <label for="day-select" style="font-size:12px;color:var(--text-muted);">활성 일자:</label>
+      <select id="day-select" onchange="selectDay(this.value)"></select>
+
+      <button onclick="applyPreset('green')" title="정상 컨디션 시뮬레이션">🟢 Green 프리셋</button>
+      <button onclick="applyPreset('yellow')" title="수면 부족/관절 뻐근함 시뮬레이션">🟡 Yellow 다운시프트 시험</button>
+      <button onclick="applyPreset('red')" title="수면 5h/NRS 4 위험 시뮬레이션">🔴 Red 전면중단 시험</button>
+      <button onclick="openCatalog('if-then')" style="border-color:#f59e0b;color:#fcd34d;">⚡ If-Then 긴급 대응</button>
+    </div>
+  </header>
+
+  <!-- Main App Mount -->
+  <main id="app-mount"></main>
+
+  <!-- Native Self-Contained Module Spec Drawer -->
+  <dialog id="catalog-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 id="drawer-title" style="font-size:17px;">모듈 상세 브리핑</h2>
+      <button onclick="document.getElementById('catalog-drawer').close()">✕ 닫기 (ESC)</button>
+    </div>
+    <div id="drawer-body"></div>
+  </dialog>
+
+  <!-- Floating Prototype Switcher -->
+  <nav class="proto-switcher" aria-label="Prototype Variant Switcher">
+    <button onclick="cycleVariant(-1)" title="이전 변형 (←)">← 이전</button>
+    <div class="proto-switcher-label">
+      <span id="switcher-title">Variant A</span>
+      <span id="switcher-desc" class="proto-switcher-sub"></span>
+    </div>
+    <button onclick="cycleVariant(1)" title="다음 변형 (→)">다음 →</button>
+  </nav>
+
+  <script>
+    // =========================================================================
+    // 1. PORTABLE DOMAIN & STATE MODULE (Issue #26 Schema & Readiness Rules)
+    // =========================================================================
+    const VARIANTS = [
+      {
+        key: 'A',
+        name: 'A · 2-Column Split Workbench',
+        desc: '좌측: 오늘의 신호등·브리핑·즉시 입력 / 우측: 4주 로그·7d MA·승급 게이트 상시 대조'
+      },
+      {
+        key: 'B',
+        name: 'B · 24h Circadian Streamline + Tabs',
+        desc: '기상(06:00)→오피스→저녁운동→취침(22:30) 시계열 피드 집중 + [주간 리뷰 & 게이트] 탭 분리'
+      },
+      {
+        key: 'C',
+        name: 'C · Telemetry Matrix & Inspector',
+        desc: '상단 4대 KPI 리본 + 좌측 4주 마크다운 직결 매트릭스 + 우측 선택일 인스펙터 패널'
+      }
+    ];
+
+    const CATALOG_SPECS = {
+      'cali-30': {
+        title: '🤸 칼리스데닉스 30분 평일 주력 (Lv 1)',
+        link: '../../research/functional-calisthenics-architecture.md#2-3대-공식-session-module-상세-구조',
+        steps: [
+          '1️⃣ [00~05분] 좌식 해독 프리헵: 흉추 폼롤러 신전 + 고관절 90/90 + 손목 예열 (콜라겐 15g+비타민C 30~60분 전 섭취 확인)',
+          '2️⃣ [05~10분] 무브먼트 프라이머: 패러렛 비스트 홀드 (무릎 1인치 부양 20초×2) + 숄더 탭',
+          '3️⃣ [10~26분] 메인 페어드 세트 (3s 하강 - 1s 정지 - 2s 수축, RIR ≥ 2): A1 패러렛 60cm 인클라인 푸시업 + A2 서스펜션 60° 로우 / B1 박스 스쿼트 + B2 스카풀라 행',
+          '4️⃣ [26~30분] 감압 쿨다운: 데드행 감압 및 횡격막 호흡'
+        ],
+        yellowNote: '🟡 Yellow 다운시프트 발동 중: 20분 미니멈 모듈 (전 종목 2세트 감축, RIR 3~4 여유 유지)로 자동 전환됨'
+      },
+      'run-lv0': {
+        title: '🏃 심폐 러닝 Lv 0 무충격 Zone 2 파워워킹',
+        link: '../../research/cardio-metabolic-running-architecture.md#2-3대-공식-러닝-session-module-상세-구조',
+        steps: [
+          '1️⃣ [5분] 발목·아킬레스 동적 모빌리티 + 둔근 점화',
+          '2️⃣ [본 세션 35~50분] 비행기(Flight phase) 없는 빠른 평지/완만한 경사 보행 — 목표 심박 Zone 2 (119~137 bpm), 코 호흡 및 문장 대화 가능 강도 유지',
+          '3️⃣ [실시간 브레이크] 심박수 138 bpm 초과 시 즉시 보폭 축소 / 정강이·족저 통증 NRS ≥ 2 즉시 중단',
+          '4️⃣ [5분] 종아리·족저근막 감압 스트레칭'
+        ],
+        yellowNote: '🟡 Yellow 다운시프트: 경사도 0% 평지 30분 저강도 회복 보행(Zone 1~2 하단)으로 전환'
+      },
+      'meal-metabolic': {
+        title: '🥗 메타볼릭/리차지 데이 식단 & 저녁 운동 2-Track',
+        link: '../../research/metabolic-nutrition-recomposition-architecture.md#1-평일-저녁-운동18002000--18301900-식사-마감-양립-2-track-오퍼레이션',
+        steps: [
+          '📌 목표 매크로: 단백질 150~160g (끼니당 35~45g) | 3대 대사 독소(액상과당·배달 튀김·마블링 적색육) 원천 차단',
+          '🥗 5단계 식사 순서: ① 물 300mL + 식이섬유(차전자피/잎채소) → ② 단백질/불포화지방 → ③ 저항성 전분(식힌 잡곡밥) 마지막 섭취',
+          '⚡ 평일 저녁 운동 2-Track: [Track 1] 17:30 오피스 프리로딩 후 19:00 운동 → 20:00 WPI 스무디 마감 / [Track 2] 18:00 귀가 즉시 30분 운동 → 18:45 Module B 1플레이트 식사 마감'
+        ],
+        yellowNote: '🟡 Yellow 보강: 저녁 식사 시 저항성 전분(잡곡밥) +25~30g 추가하여 코르티솔 방어, 가짜 배고픔 15분 게이트 가동'
+      },
+      'recovery-mod2': {
+        title: '🌙 Recovery Module 2 — 30분 표준 나이트타임 윈드다운 (10-10-10)',
+        link: '../../research/sleep-circadian-metabolic-recovery-architecture.md#2-module-2--30분-표준-나이트타임-윈드다운-30-min-standard-nighttime-wind-down',
+        steps: [
+          '1️⃣ [21:30~21:40] 환경·체온 덤핑: 전 구역 스크린 오프, 조도 ≤ 10 lux 디밍, 침실 18~20°C 세팅',
+          '2️⃣ [21:40~21:50] 근막 감압 (Track A 상체·흉추 이완 / Track B 하체·족저 종아리 이완)',
+          '3️⃣ [21:50~22:00] 생리적 한숨(Physiological Sigh) & 4-7-8 부교감 호흡 후 좌측 측와위(Step 2) 입면'
+        ],
+        yellowNote: '🟡 Yellow 필수 추가: 점심 12:45 오피스 Module 3 (20분 NSDR/파워냅) + 밤 22:00 조기 취침'
+      },
+      'if-then': {
+        title: '⚡ 상황별 If-Then 긴급 오토레귤레이션 가이드',
+        link: './README.md#32-상황별-예외-처리--오토레귤레이션-딥링크-if-then-pointers',
+        steps: [
+          '🏢 [오피스 점심 외식] Green(국밥 건더기·생선구이·포케·샤브샤브) 우선, 덮밥/면류는 채소·단백질 선행 후 밥 1/2 남기기 + 식후 15분 산책 필수',
+          '🍻 [저녁 회식/야근 (Module D)] 참석 30분 전 WPI 1스쿱 선행 방어 → 무당 소주/하이볼 최대 2잔 + 물 1:1 매칭 → 익일 아침 단식 금지(기상 60분 내 고단백 해장 + 전해질)',
+          '🧠 [야간 가짜 배고픔] 15분 3단 차단 게이트: ① 미온수/허브티 300mL → ② 양치질 및 주방 소등 → ③ 15분 타이머 후에도 실제 위장 공복 시 그릭요거트 소량',
+          '🌙 [새벽 02:00~03:30 각성] 시계 확인 금지 → 코막힘 시 비강 확장기/측와위 재정렬, 심박 상승 시 4-7-8 호흡, 20분 이상 불면 시 거실 미등 독서'
+        ],
+        yellowNote: '실전 예외 발생 시 완벽주의 포기 대신 즉시 방어 모듈(Module D / Module 1)로 전환하여 주간 ≥ 85%(6/7일) 궤도를 사수합니다.'
+      }
+    };
+
+    const INITIAL_DAYS = [
+      {
+        id: '10-18', week: 1, label: '10-18 (일)', role: '주간 기준선 · 밀프렙 · 지구력 보행',
+        trafficOverride: null, weight: 98.2, sleepH: 7.2, se: 88, rhrDelta: 0, spo2: 94, nrs: 0,
+        sessionBase: '🏃 Lv 0 보행 40분', sessionSpec: 'run-lv0', sessionDone: true,
+        mealBase: 'Sunday 30-Min Prep', mealCutoffTarget: '19:00', mealTime: '18:30',
+        recoveryBase: '측와위 세팅 · Module 2', bedCutoffTarget: '22:45', bedTime: '22:30',
+        supps: { s1: false, s2: true, s3: true, s4: true },
+        memo: '첫 실행일: 주간 스톡 준비 및 기준선 측정'
+      },
+      {
+        id: '10-19', week: 1, label: '10-19 (월)', role: '주초 혈당 방어 · 무충격 유산소',
+        trafficOverride: null, weight: 98.0, sleepH: 7.0, se: 87, rhrDelta: 1, spo2: 94, nrs: 0,
+        sessionBase: '🏃 Lv 0 보행 35~40분', sessionSpec: 'run-lv0', sessionDone: true,
+        mealBase: '휴식일 티어', mealCutoffTarget: '19:00', mealTime: '18:45',
+        recoveryBase: 'Module 2', bedCutoffTarget: '22:45', bedTime: '22:30',
+        supps: { s1: false, s2: true, s3: true, s4: true },
+        memo: '출퇴근 보행 + 저녁 식후 15분 산책 완수'
+      },
+      {
+        id: '10-20', week: 1, label: '10-20 (화)', role: '평일 주력 근력 #1 (GLUT4 점화)',
+        trafficOverride: null, weight: 97.8, sleepH: 6.8, se: 86, rhrDelta: 1, spo2: 93, nrs: 1,
+        sessionBase: '🤸 칼리스데닉스 30분 Lv 1 (8회×2~3세트)', sessionSpec: 'cali-30', sessionDone: false,
+        mealBase: '메타볼릭 데이', mealCutoffTarget: '19:00', mealTime: '18:40',
+        recoveryBase: 'Module 2 Track A', bedCutoffTarget: '22:45', bedTime: '22:30',
+        supps: { s1: false, s2: true, s3: true, s4: false },
+        memo: '운동 45분 전 콜라겐 15g + 비타민C 섭취'
+      },
+      {
+        id: '10-21', week: 1, label: '10-21 (수)', role: '주중 활동성 회복 · 미토콘드리아 보행',
+        trafficOverride: null, weight: null, sleepH: null, se: null, rhrDelta: 0, spo2: 94, nrs: 0,
+        sessionBase: '🏃 Lv 0 보행 35~40분', sessionSpec: 'run-lv0', sessionDone: false,
+        mealBase: '휴식일 티어', mealCutoffTarget: '19:00', mealTime: '',
+        recoveryBase: 'Module 2 Track B', bedCutoffTarget: '22:45', bedTime: '',
+        supps: { s1: false, s2: false, s3: false, s4: false },
+        memo: ''
+      },
+      {
+        id: '10-22', week: 1, label: '10-22 (목)', role: '평일 주력 근력 #2 (48h 간격)',
+        trafficOverride: null, weight: null, sleepH: null, se: null, rhrDelta: 0, spo2: 94, nrs: 0,
+        sessionBase: '🤸 칼리스데닉스 30분 Lv 1 (8회×2~3세트)', sessionSpec: 'cali-30', sessionDone: false,
+        mealBase: '메타볼릭 데이', mealCutoffTarget: '19:00', mealTime: '',
+        recoveryBase: 'Module 2 Track A', bedCutoffTarget: '22:45', bedTime: '',
+        supps: { s1: false, s2: false, s3: false, s4: false },
+        memo: ''
+      },
+      {
+        id: '10-23', week: 1, label: '10-23 (금)', role: '주말 전 대사 방어 · 경사/평지 보행',
+        trafficOverride: null, weight: null, sleepH: null, se: null, rhrDelta: 0, spo2: 94, nrs: 0,
+        sessionBase: '🏃 Lv 0 보행 35~40분 (또는 10분 PHA)', sessionSpec: 'run-lv0', sessionDone: false,
+        mealBase: '휴식일 티어', mealCutoffTarget: '19:00', mealTime: '',
+        recoveryBase: 'Module 2', bedCutoffTarget: '22:45', bedTime: '',
+        supps: { s1: false, s2: false, s3: false, s4: false },
+        memo: ''
+      },
+      {
+        id: '10-24', week: 1, label: '10-24 (토)', role: '주말 통합 근력 · 무브먼트 · 건 등척성',
+        trafficOverride: null, weight: null, sleepH: null, se: null, rhrDelta: 0, spo2: 94, nrs: 0,
+        sessionBase: '🤸 칼리스데닉스 60분 확장 Lv 1', sessionSpec: 'cali-30', sessionDone: false,
+        mealBase: '메타볼릭 데이', mealCutoffTarget: '19:00', mealTime: '',
+        recoveryBase: 'Module 5', bedCutoffTarget: '22:45', bedTime: '',
+        supps: { s1: false, s2: false, s3: false, s4: false },
+        memo: ''
+      }
+    ];
+
+    const state = {
+      variant: new URLSearchParams(window.location.search).get('variant') || 'A',
+      bTab: 'today', // 'today' | 'review' for Variant B
+      selectedDayId: '10-20',
+      selectedWeek: 1,
+      weeklyAux: {
+        1: { waist: 99.5, rhr: 64, spo2: 94 },
+        2: { waist: 98.8, rhr: 63, spo2: 94 },
+        3: { waist: 98.0, rhr: 62, spo2: 95 },
+        4: { waist: 97.2, rhr: 61, spo2: 95 }
+      },
+      days: INITIAL_DAYS
+    };
+
+    // Pure Readiness Traffic Light Evaluator (protocols.md §2.2)
+    function evaluateReadiness(day) {
+      if (day.trafficOverride) {
+        return { grade: day.trafficOverride, reason: '수동 오버라이드 적용됨' };
+      }
+      if (day.sleepH === null && day.nrs === null) {
+        return { grade: 'none', reason: '아침 지표 미입력' };
+      }
+      const sleep = day.sleepH ?? 7.0;
+      const se = day.se ?? 85;
+      const rhr = day.rhrDelta ?? 0;
+      const spo2 = day.spo2 ?? 94;
+      const nrs = day.nrs ?? 0;
+
+      if (sleep < 5.5 || rhr >= 5 || spo2 < 90 || nrs >= 4) {
+        const reasons = [];
+        if (sleep < 5.5) reasons.push(`실수면 ${sleep}h (<5.5h)`);
+        if (rhr >= 5) reasons.push(`RHR +${rhr}bpm 급등`);
+        if (spo2 < 90) reasons.push(`SpO2 ${spo2}% (<90%)`);
+        if (nrs >= 4) reasons.push(`통증 NRS ${nrs} (≥4)`);
+        return { grade: 'red', reason: reasons.join(', ') };
+      }
+      if (sleep < 6.5 || se < 85 || rhr >= 3 || nrs >= 2) {
+        const reasons = [];
+        if (sleep < 6.5) reasons.push(`실수면 ${sleep}h (5.5~6.5h)`);
+        if (se < 85) reasons.push(`SE ${se}% (<85%)`);
+        if (rhr >= 3) reasons.push(`RHR +${rhr}bpm`);
+        if (nrs >= 2) reasons.push(`관절 뻐근함 NRS ${nrs}`);
+        return { grade: 'yellow', reason: reasons.join(', ') };
+      }
+      return { grade: 'green', reason: `수면 ${sleep}h(${se}%), NRS ${nrs}, 자율신경 정상` };
+    }
+
+    // Autoregulation Module Adaptation
+    function getAdaptedModules(day, readiness) {
+      if (readiness.grade === 'red') {
+        return {
+          modeClass: 'hardstop',
+          badge: '🔴 Hard Stop (전면 중단)',
+          session: '🛑 정규 운동 중단 → 20~30분 야외 평지 햇빛 산책 + 흉추/고관절 모빌리티',
+          altSessionTag: '20분 평지 산책+모빌리티',
+          meal: '🛑 칼로리 적자 중단 → 유지 칼로리(2,450~2,550 kcal, 탄수 230~260g) 및 12:12 창 완화',
+          recovery: '🛑 점심 Module 3 (20분 NSDR) 필수 + 밤 21:00 온열 족욕 후 Module 1 (10분 긴급 뇌파 셧다운)'
+        };
+      }
+      if (readiness.grade === 'yellow') {
+        const isCali = day.sessionBase.includes('칼리스데닉스');
+        return {
+          modeClass: 'downshifted',
+          badge: '🟡 Downshift (-33% 볼륨 감축)',
+          session: isCali
+            ? `${day.sessionBase} → 20분 미니멈 모듈 (2세트, RIR 3~4)`
+            : `${day.sessionBase} → 평지 저강도 파워워킹 30분 전환`,
+          altSessionTag: isCali ? '20분 미니멈(2세트)' : '평지 보행 30분',
+          meal: `${day.mealBase} + 식전 프리로딩 강화 & 저녁 잡곡밥 +25~30g 보강 (15분 가짜배고픔 게이트)`,
+          recovery: `점심 12:45 Module 3 (20분 파워냅) 필수 + 밤 22:00 조기 취침 (${day.recoveryBase})`
+        };
+      }
+      return {
+        modeClass: '',
+        badge: '🟢 정규 프로토콜 가동',
+        session: day.sessionBase,
+        altSessionTag: null,
+        meal: `${day.mealBase} (단백질 150~160g, ${day.mealCutoffTarget} 식사 마감)`,
+        recovery: `${day.recoveryBase} (21:30 스크린 오프, 22:30 소등)`
+      };
+    }
+
+    // Issue #26 Lossless Markdown Row Serializer
+    function serializeMarkdownRow(day) {
+      const r = evaluateReadiness(day);
+      const adapted = getAdaptedModules(day, r);
+      const lightMap = { green: '🟢', yellow: '🟡', red: '🔴', none: ' ' };
+      const wStr = day.weight !== null && day.weight !== '' ? `${Number(day.weight).toFixed(1)}kg` : '___._kg';
+      const sStr = day.sleepH !== null && day.sleepH !== '' ? `${Number(day.sleepH).toFixed(1)}h` : '__h';
+      const seStr = day.se !== null && day.se !== '' ? `${day.se}%` : '__%';
+      const nrsStr = day.nrs !== null && day.nrs !== '' ? `NRS ${day.nrs}` : 'NRS _';
+
+      let sessionCell = day.sessionBase;
+      if (day.sessionDone) {
+        if (adapted.altSessionTag) {
+          sessionCell += ` → \`${adapted.altSessionTag}\` ✅`;
+        } else {
+          sessionCell += ' ✅';
+        }
+      }
+      const mealTimeStr = day.mealTime ? day.mealTime : '__ : __';
+      const bedTimeStr = day.bedTime ? day.bedTime : '__ : __';
+      const memoSafe = (day.memo || '').replace(/\|/g, '\\|');
+
+      return `| **${day.label}** | \`${lightMap[r.grade]}\` | \`${wStr}\` / \`${sStr}(${seStr})\` / \`${nrsStr}\` | ${sessionCell} | ${day.mealBase} (\`${mealTimeStr}\` 마감) | ${day.recoveryBase} (\`${bedTimeStr}\`) | ${memoSafe} |`;
+    }
+
+    // Issue #26 Weekly Summary & Compliance Aggregator
+    function computeWeekAggregation(weekNum) {
+      const days = state.days.filter(d => d.week === weekNum);
+      const weights = days.map(d => d.weight).filter(v => v !== null && v !== '');
+      const sleeps = days.map(d => d.sleepH).filter(v => v !== null && v !== '');
+      const ses = days.map(d => d.se).filter(v => v !== null && v !== '');
+      const nrss = days.map(d => d.nrs).filter(v => v !== null && v !== '');
+
+      const maWeight = weights.length ? (weights.reduce((a, b) => a + Number(b), 0) / weights.length).toFixed(1) : '___._';
+      let avgSleepStr = '__h __m';
+      if (sleeps.length) {
+        const avgH = sleeps.reduce((a, b) => a + Number(b), 0) / sleeps.length;
+        const h = Math.floor(avgH);
+        const m = Math.round((avgH - h) * 60);
+        avgSleepStr = `${h}h ${String(m).padStart(2, '0')}m`;
+      }
+      const avgSe = ses.length ? Math.round(ses.reduce((a, b) => a + Number(b), 0) / ses.length) : '__';
+      const maxNrs = nrss.length ? Math.max(...nrss.map(Number)) : '__';
+
+      const bedCount = days.filter(d => d.bedTime && d.bedTime <= d.bedCutoffTarget).length;
+      const mealCount = days.filter(d => d.mealTime && d.mealTime <= d.mealCutoffTarget).length;
+      const sessionCount = days.filter(d => d.sessionDone).length;
+
+      const aux = state.weeklyAux[weekNum];
+      const summaryLine = `- **주간 요약**: 7d MA 체중 \`${maWeight} kg\` (시작 \`98.2 kg\`) | 허리둘레 \`${aux.waist || '___._'} cm\` | 평균 실수면 \`${avgSleepStr}\` (SE \`${avgSe}%\`, RHR \`${aux.rhr || '__'} bpm\`, 최저 SpO2 \`${aux.spo2 || '__'}%\`)`;
+      const complianceLine = `- **주간 준수율 (목표 \`≥ 6/7일\`)**: 기상·취침 앵커 \`${bedCount} / 7\` | \`19:00\` 식사 마감 & 독소 차단 \`${mealCount} / 7\` | 정규 운동 완수 \`${sessionCount} / 6회\` | 관절·첫발 최고 통증 \`NRS ${maxNrs}\``;
+      const measurementsRow = `| 2026-10-24 (W${weekNum}) | ${maWeight} kg | ${aux.waist} cm | ${avgSleepStr} (${avgSe}%) | ${aux.rhr} bpm / ${aux.spo2}% | 운동 ${sessionCount}/6 · 식단 ${mealCount}/7 · NRS ${maxNrs} |`;
+
+      return { maWeight, avgSleepStr, avgSe, maxNrs, bedCount, mealCount, sessionCount, summaryLine, complianceLine, measurementsRow };
+    }
+
+    // =========================================================================
+    // 2. SHARED SUB-RENDERERS
+    // =========================================================================
+    function getActiveDay() {
+      return state.days.find(d => d.id === state.selectedDayId) || state.days[0];
+    }
+
+    function renderTrafficBadge(readiness) {
+      if (readiness.grade === 'green') return `<span class="traffic-pill traffic-green">🟢 Green (정상 회복)</span>`;
+      if (readiness.grade === 'yellow') return `<span class="traffic-pill traffic-yellow">🟡 Yellow (경계 · 다운시프트)</span>`;
+      if (readiness.grade === 'red') return `<span class="traffic-pill traffic-red">🔴 Red (위험 · 전면 중단)</span>`;
+      return `<span class="traffic-pill" style="background:var(--surface-3);color:var(--text-muted);">⚪ 미입력</span>`;
+    }
+
+    function renderMorningCheckinCard(day, readiness) {
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🌅 1. 아침 생체 지표 & Readiness 신호등</div>
+            ${renderTrafficBadge(readiness)}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+            자동 판정 사유: <strong style="color:var(--text);">${readiness.reason}</strong>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>공복 체중 (kg)</label>
+              <input type="number" step="0.1" value="${day.weight ?? ''}" placeholder="98.2" oninput="updateDayField('weight', this.value)" />
+            </div>
+            <div class="form-field">
+              <label>실수면 (h)</label>
+              <input type="number" step="0.1" value="${day.sleepH ?? ''}" placeholder="7.5" oninput="updateDayField('sleepH', this.value)" />
+            </div>
+            <div class="form-field">
+              <label>수면효율 SE (%)</label>
+              <input type="number" step="1" value="${day.se ?? ''}" placeholder="88" oninput="updateDayField('se', this.value)" />
+            </div>
+            <div class="form-field">
+              <label>첫발·관절 NRS (0~10)</label>
+              <input type="number" step="1" min="0" max="10" value="${day.nrs ?? ''}" placeholder="0" oninput="updateDayField('nrs', this.value)" />
+            </div>
+            <div class="form-field">
+              <label>RHR 편차 (bpm)</label>
+              <input type="number" step="1" value="${day.rhrDelta ?? 0}" oninput="updateDayField('rhrDelta', this.value)" />
+            </div>
+            <div class="form-field">
+              <label>수동 오버라이드</label>
+              <select onchange="updateDayField('trafficOverride', this.value || null)">
+                <option value="" ${!day.trafficOverride ? 'selected' : ''}>자동 판정</option>
+                <option value="green" ${day.trafficOverride === 'green' ? 'selected' : ''}>🟢 Green 고정</option>
+                <option value="yellow" ${day.trafficOverride === 'yellow' ? 'selected' : ''}>🟡 Yellow 고정</option>
+                <option value="red" ${day.trafficOverride === 'red' ? 'selected' : ''}>🔴 Red 고정</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBriefingAndExecutionCard(day, readiness, adapted) {
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🎯 2. 오늘의 모듈 브리핑 & 실행 체크 (${day.label})</div>
+            <span class="tag">${adapted.badge}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">역할: ${day.role}</div>
+
+          <!-- Session Module -->
+          <div class="module-box ${adapted.modeClass}">
+            <div class="module-header">
+              <span class="module-name">🤸/🏃 운동 (Session Module)</span>
+              <div style="display:flex;gap:6px;">
+                <button onclick="openCatalog('${day.sessionSpec}')">📖 내장 큐·세트 열기</button>
+              </div>
+            </div>
+            <div style="font-size:13px;margin-bottom:8px;">${adapted.session}</div>
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:var(--accent);">
+              <input type="checkbox" ${day.sessionDone ? 'checked' : ''} onchange="updateDayField('sessionDone', this.checked)" />
+              오늘 운동 세션 완수 (체크 시 log.md 셀 끝에 <code>✅</code> 자동 부착)
+            </label>
+          </div>
+
+          <!-- Meal Module -->
+          <div class="module-box ${adapted.modeClass}">
+            <div class="module-header">
+              <span class="module-name">🥗 영양 (Meal Module & 마감 컷오프)</span>
+              <button onclick="openCatalog('meal-metabolic')">📖 식사 순서·2-Track</button>
+            </div>
+            <div style="font-size:13px;margin-bottom:8px;">${adapted.meal}</div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label style="font-size:12px;color:var(--text-muted);">마지막 칼로리 마감 시각 (목표 ≤ ${day.mealCutoffTarget}):</label>
+              <input type="time" value="${day.mealTime}" oninput="updateDayField('mealTime', this.value)" />
+              <button onclick="updateDayField('mealTime', '18:30')">18:30 원클릭</button>
+            </div>
+          </div>
+
+          <!-- Recovery Module -->
+          <div class="module-box ${adapted.modeClass}">
+            <div class="module-header">
+              <span class="module-name">🌙 수면 (Recovery Module & 취침 시각)</span>
+              <button onclick="openCatalog('recovery-mod2')">📖 10-10-10 윈드다운</button>
+            </div>
+            <div style="font-size:13px;margin-bottom:8px;">${adapted.recovery}</div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label style="font-size:12px;color:var(--text-muted);">소등 취침 시각 (목표 ≤ ${day.bedCutoffTarget}):</label>
+              <input type="time" value="${day.bedTime}" oninput="updateDayField('bedTime', this.value)" />
+              <button onclick="updateDayField('bedTime', '22:30')">22:30 원클릭</button>
+            </div>
+          </div>
+
+          <!-- 4-Slot Supplements -->
+          <div style="margin-top:12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">💊 4슬롯 서플리먼트 일일 체크</div>
+            <div class="supp-grid">
+              <label class="supp-item">
+                <input type="checkbox" ${day.supps.s1 ? 'checked' : ''} onchange="updateSupp('s1', this.checked)" />
+                <span><strong>Slot 1 (식전 15m)</strong><br/>차전자피 5g + 사과식초 15mL (W3~)</span>
+              </label>
+              <label class="supp-item">
+                <input type="checkbox" ${day.supps.s2 ? 'checked' : ''} onchange="updateSupp('s2', this.checked)" />
+                <span><strong>Slot 2 (식후 즉시)</strong><br/>D3+K2 / rTG 오메가-3</span>
+              </label>
+              <label class="supp-item">
+                <input type="checkbox" ${day.supps.s3 ? 'checked' : ''} onchange="updateSupp('s3', this.checked)" />
+                <span><strong>Slot 3 (15:30 / 운동전)</strong><br/>WPI 1스쿱 / 콜라겐 15g+비타민C</span>
+              </label>
+              <label class="supp-item">
+                <input type="checkbox" ${day.supps.s4 ? 'checked' : ''} onchange="updateSupp('s4', this.checked)" />
+                <span><strong>Slot 4 (21:15 취침전)</strong><br/>마그네슘 비스글리시네이트 300mg</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Memo & Live Markdown Row Preview -->
+          <div style="margin-top:12px;">
+            <label style="font-size:11px;color:var(--text-muted);font-weight:600;">한 줄 메모 (`log.md` 7번째 열 직렬화)</label>
+            <input type="text" style="width:100%;margin-top:4px;" value="${day.memo}" placeholder="특이사항, 운동 RIR, 외식 방어 메모..." oninput="updateDayField('memo', this.value)" />
+          </div>
+
+          <div style="margin-top:12px;">
+            <div class="md-preview-label">
+              <span>실시간 <code>log.md</code> In-place 직렬화 프리뷰 (Issue #26 규칙)</span>
+              <span>무손실 정규식 슬롯 치환</span>
+            </div>
+            <div class="md-preview-box">${serializeMarkdownRow(day)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderWeeklyTableAndSummaryCard(agg) {
+      const rowsHtml = state.days.map(d => {
+        const r = evaluateReadiness(d);
+        const adapted = getAdaptedModules(d, r);
+        const lightIcon = r.grade === 'green' ? '🟢' : r.grade === 'yellow' ? '🟡' : r.grade === 'red' ? '🔴' : '⚪';
+        const isSel = d.id === state.selectedDayId;
+        const w = d.weight !== null && d.weight !== '' ? `${Number(d.weight).toFixed(1)}kg` : '___._kg';
+        const s = d.sleepH !== null && d.sleepH !== '' ? `${d.sleepH}h(${d.se || '__'}%)` : '__h(__%)';
+        const sessionText = d.sessionDone
+          ? (adapted.altSessionTag ? `${d.sessionBase} → ${adapted.altSessionTag} ✅` : `${d.sessionBase} ✅`)
+          : d.sessionBase;
+        return `
+          <tr class="${isSel ? 'selected-row' : ''}" onclick="selectDay('${d.id}')">
+            <td><strong>${d.label}</strong></td>
+            <td style="text-align:center;">${lightIcon}</td>
+            <td style="font-family:var(--mono);font-size:12px;">${w} / ${s} / NRS ${d.nrs ?? '_'}</td>
+            <td>${sessionText}</td>
+            <td>${d.mealBase} (<code>${d.mealTime || '__:__'}</code>)</td>
+            <td>${d.recoveryBase} (<code>${d.bedTime || '__:__'}</code>)</td>
+            <td style="color:var(--text-muted);">${d.memo || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const aux = state.weeklyAux[1];
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 Week 1 로그 테이블 & 주간 요약 자동 집계 (일~토)</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="copyMeasurementsRow()">📋 profile/measurements.md 행 복사</button>
+              <button class="primary" onclick="alert('본 구현(#28)에서 File System Access API를 통해 log.md에 직접 덮어씁니다.')">💾 log.md 저장 시뮬레이션</button>
+            </div>
+          </div>
+
+          <!-- Weekly Summary & Aux Inputs -->
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
+              <div style="font-size:13px;">
+                <strong>자동 산출:</strong>
+                7d MA 체중 <code style="color:var(--accent);font-weight:700;">${agg.maWeight} kg</code> (시작 98.2kg) ·
+                평균 실수면 <code>${agg.avgSleepStr} (SE ${agg.avgSe}%)</code> ·
+                준수율: 수면 <code>${agg.bedCount}/7</code> | 식단 <code>${agg.mealCount}/7</code> | 운동 <code>${agg.sessionCount}/6회</code> | 최고 통증 <code>NRS ${agg.maxNrs}</code>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;font-size:12px;">
+                <span>주간 보조지표: 허리(cm)</span>
+                <input type="number" step="0.1" value="${aux.waist}" oninput="updateAux(1, 'waist', this.value)" style="width:68px;" />
+                <span>RHR</span>
+                <input type="number" value="${aux.rhr}" oninput="updateAux(1, 'rhr', this.value)" style="width:58px;" />
+                <span>SpO2(%)</span>
+                <input type="number" value="${aux.spo2}" oninput="updateAux(1, 'spo2', this.value)" style="width:58px;" />
+              </div>
+            </div>
+            <div class="md-preview-box" style="font-size:11.5px;">${agg.summaryLine}<br/>${agg.complianceLine}</div>
+          </div>
+
+          <div class="log-table-wrap">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>일자</th>
+                  <th>신호등</th>
+                  <th>체중 / 수면(SE) / NRS</th>
+                  <th>운동 (Session Module)</th>
+                  <th>영양 (마감)</th>
+                  <th>수면 (취침)</th>
+                  <th>한 줄 메모</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTrendAndGatesCard(agg) {
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📈 4주 7d MA 체중 코리도 & Progression Gate 심사 현황</div>
+            <span class="tag">목표: -0.5 ~ -0.8%/주 (98.2kg → ~95.5kg)</span>
+          </div>
+
+          <!-- SVG 4-Week Trend Corridor -->
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;">
+            <svg viewBox="0 0 600 110" style="width:100%;height:110px;display:block;">
+              <!-- Target Corridor Polygon -->
+              <polygon points="40,25 210,42 380,60 550,78 550,96 380,76 210,55 40,35" fill="rgba(56, 189, 248, 0.12)" stroke="rgba(56, 189, 248, 0.35)" stroke-dasharray="4 4" />
+              <!-- Actual 7d MA Line -->
+              <polyline points="40,30 210,46" fill="none" stroke="#22c55e" stroke-width="3" />
+              <circle cx="40" cy="30" r="5" fill="#22c55e" />
+              <circle cx="210" cy="46" r="5" fill="#22c55e" />
+              <circle cx="380" cy="66" r="4" fill="#64748b" />
+              <circle cx="550" cy="84" r="4" fill="#64748b" />
+              <text x="25" y="20" fill="#eef2f6" font-size="11" font-family="monospace">시작 98.2kg</text>
+              <text x="175" y="36" fill="#22c55e" font-size="11" font-weight="bold" font-family="monospace">W1 MA: ${agg.maWeight}kg</text>
+              <text x="345" y="56" fill="#9aa7b8" font-size="11" font-family="monospace">W2 타겟 ~97.2kg</text>
+              <text x="495" y="74" fill="#9aa7b8" font-size="11" font-family="monospace">W4 타겟 ~95.5kg</text>
+            </svg>
+          </div>
+
+          <!-- 4 Domain Progression Gates -->
+          <div class="gate-grid">
+            <div class="gate-card">
+              <div style="display:flex;justify-content:space-between;font-weight:700;">
+                <span>🤸 칼리스데닉스 (Lv 1 → Lv 2)</span>
+                <span style="color:var(--green);">진행 중 (NRS ≤ 1)</span>
+              </div>
+              <div class="gate-progress"><div class="gate-bar" style="width:${Math.min(100, (agg.sessionCount / 6) * 100)}%"></div></div>
+              <div style="color:var(--text-muted);font-size:11.5px;">W3 12회×3세트 2회 연속 완수 + RIR ≥ 2 + 관절 NRS 0~1</div>
+            </div>
+            <div class="gate-card">
+              <div style="display:flex;justify-content:space-between;font-weight:700;">
+                <span>🏃 심폐 러닝 (Lv 0 → Lv 1 Walk-Jog)</span>
+                <span style="color:var(--green);">첫발 NRS ${agg.maxNrs}</span>
+              </div>
+              <div class="gate-progress"><div class="gate-bar" style="width:65%"></div></div>
+              <div style="color:var(--text-muted);font-size:11.5px;">평일 40~45분·주말 60분 연속 보행 + 심박 드리프트 &lt; 5%</div>
+            </div>
+            <div class="gate-card">
+              <div style="display:flex;justify-content:space-between;font-weight:700;">
+                <span>🥗 대사 영양 (W3 Lv 2 13:11 승급)</span>
+                <span style="color:var(--accent);">${agg.mealCount}/7일 준수</span>
+              </div>
+              <div class="gate-progress"><div class="gate-bar" style="width:${(agg.mealCount / 7) * 100}%"></div></div>
+              <div style="color:var(--text-muted);font-size:11.5px;">W1~W2 14일 중 12일(≥85%) 19:00 마감 및 독소 차단 달성 시 해금</div>
+            </div>
+            <div class="gate-card">
+              <div style="display:flex;justify-content:space-between;font-weight:700;">
+                <span>🌙 수면·회복 (W3 Lv 2 4대 컷오프)</span>
+                <span style="color:var(--accent);">${agg.bedCount}/7일 · SE ${agg.avgSe}%</span>
+              </div>
+              <div class="gate-progress"><div class="gate-bar" style="width:${(agg.bedCount / 7) * 100}%"></div></div>
+              <div style="color:var(--text-muted);font-size:11.5px;">SE ≥ 85% & 최저 SpO2 ≥ 93% 유지 + 기상·취침 앵커 12/14일</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 3. THREE RADICALLY DIFFERENT STRUCTURAL VARIANTS (UI.md Spec)
+    // =========================================================================
+
+    // Variant A: 2-Column Split Workbench (Today Action Left | 4-Week Matrix & Gate Right)
+    function renderVariantA(day, readiness, adapted, agg) {
+      return `
+        <div class="variant-a-grid">
+          <div class="col-stack">
+            ${renderMorningCheckinCard(day, readiness)}
+            ${renderBriefingAndExecutionCard(day, readiness, adapted)}
+          </div>
+          <div class="col-stack">
+            ${renderWeeklyTableAndSummaryCard(agg)}
+            ${renderTrendAndGatesCard(agg)}
+          </div>
+        </div>
+      `;
+    }
+
+    // Variant B: 24h Circadian Streamline (Vertical Time-of-Day Feed + Mode Switch Tabs)
+    function renderVariantB(day, readiness, adapted, agg) {
+      return `
+        <div class="variant-b-container">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="mode-tabs">
+              <button class="mode-tab ${state.bTab === 'today' ? 'active' : ''}" onclick="setBTab('today')">☀️ 오늘의 24시간 시계열 실행 스트림 (${day.label})</button>
+              <button class="mode-tab ${state.bTab === 'review' ? 'active' : ''}" onclick="setBTab('review')">📊 4주 로그 테이블 & Progression Gate 심사</button>
+            </div>
+            <div>${renderTrafficBadge(readiness)}</div>
+          </div>
+
+          ${state.bTab === 'today' ? `
+            <div class="timeline-stream">
+              <div class="stream-node">
+                <div class="stream-time">06:00 ~ 07:30 · 기상 광 점화 & 아침 Readiness 판정</div>
+                <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">미온수 300mL + 10,000 Lux 광 점화 + 아침 첫발 NRS 및 워치 수면 입력 → 당일 전체 모듈 자동 조율</p>
+                ${renderMorningCheckinCard(day, readiness)}
+              </div>
+
+              <div class="stream-node">
+                <div class="stream-time">12:00 ~ 15:30 · 카페인 컷오프 · 오피스 점심(Module C) · 오후 브릿지(Slot 1~3)</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                  <div>
+                    <strong>낮 대사 방어:</strong> 12:00 카페인 마감 · 식후 15분 보행 · 매 50분 3분 좌식 단절(SRA)
+                    ${readiness.grade !== 'green' ? `<div style="color:var(--yellow);font-weight:700;margin-top:4px;">⚡ ${readiness.grade.toUpperCase()} 연동: 12:45 오피스 Module 3 (20분 NSDR/파워냅) 필수 수행</div>` : ''}
+                  </div>
+                  <button onclick="openCatalog('if-then')">외식 Green/Yellow/Red 선별표</button>
+                </div>
+              </div>
+
+              <div class="stream-node">
+                <div class="stream-time">18:00 ~ 20:00 · 저녁 주력 Session Module & 식사 마감 (${day.mealCutoffTarget})</div>
+                ${renderBriefingAndExecutionCard(day, readiness, adapted)}
+              </div>
+
+              <div class="stream-node">
+                <div class="stream-time">20:45 ~ 22:30 · 체온 덤핑 · Slot 4 마그네슘 · Recovery Module 입면</div>
+                <div style="font-size:13px;">
+                  <strong>야간 프로토콜:</strong> ${adapted.recovery} — 좌측 측와위(Step 2) 세팅 확인
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div class="col-stack">
+              ${renderWeeklyTableAndSummaryCard(agg)}
+              ${renderTrendAndGatesCard(agg)}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // Variant C: Telemetry Matrix-First & Side Inspector
+    function renderVariantC(day, readiness, adapted, agg) {
+      return `
+        <div class="variant-c-container">
+          <div class="hud-ribbon">
+            <div class="hud-kpi">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);">활성 일자 Readiness</div>
+                <div style="margin-top:4px;">${renderTrafficBadge(readiness)}</div>
+              </div>
+              <span class="tag">${day.label}</span>
+            </div>
+            <div class="hud-kpi">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);">Week 1 7d MA 체중</div>
+                <div class="hud-val">${agg.maWeight} kg</div>
+              </div>
+              <span class="tag">시작 98.2kg</span>
+            </div>
+            <div class="hud-kpi">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);">주간 핵심 준수율 (목표 ≥6/7)</div>
+                <div class="hud-val" style="font-size:16px;">운동 ${agg.sessionCount}/6 · 식단 ${agg.mealCount}/7 · 수면 ${agg.bedCount}/7</div>
+              </div>
+              <span class="tag">Lv 2 게이트</span>
+            </div>
+            <div class="hud-kpi">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);">주간 최고 통증 / 평균 수면</div>
+                <div class="hud-val" style="font-size:16px;color:var(--green);">NRS ${agg.maxNrs} · ${agg.avgSleepStr}</div>
+              </div>
+              <span class="tag">SE ${agg.avgSe}%</span>
+            </div>
+          </div>
+
+          <div class="c-main-split">
+            <div class="col-stack">
+              ${renderWeeklyTableAndSummaryCard(agg)}
+              ${renderTrendAndGatesCard(agg)}
+            </div>
+            <div class="col-stack">
+              <div style="font-size:12px;color:var(--accent);font-weight:700;padding:0 4px;">
+                🔍 우측 선택일 인스펙터 — 좌측 표에서 행을 클릭하면 즉시 편집·브리핑 전환
+              </div>
+              ${renderMorningCheckinCard(day, readiness)}
+              ${renderBriefingAndExecutionCard(day, readiness, adapted)}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 4. INTERACTION CONTROLLERS & SWITCHER
+    // =========================================================================
+    function renderAll() {
+      // Populate Day Selector
+      const sel = document.getElementById('day-select');
+      sel.innerHTML = state.days.map(d => {
+        const r = evaluateReadiness(d);
+        const icon = r.grade === 'green' ? '🟢' : r.grade === 'yellow' ? '🟡' : r.grade === 'red' ? '🔴' : '⚪';
+        return `<option value="${d.id}" ${d.id === state.selectedDayId ? 'selected' : ''}>W${d.week} · ${d.label} ${icon} — ${d.role}</option>`;
+      }).join('');
+
+      const day = getActiveDay();
+      const readiness = evaluateReadiness(day);
+      const adapted = getAdaptedModules(day, readiness);
+      const agg = computeWeekAggregation(1);
+
+      const mount = document.getElementById('app-mount');
+      if (state.variant === 'A') {
+        mount.innerHTML = renderVariantA(day, readiness, adapted, agg);
+      } else if (state.variant === 'B') {
+        mount.innerHTML = renderVariantB(day, readiness, adapted, agg);
+      } else {
+        mount.innerHTML = renderVariantC(day, readiness, adapted, agg);
+      }
+
+      const vInfo = VARIANTS.find(v => v.key === state.variant) || VARIANTS[0];
+      document.getElementById('switcher-title').textContent = `Variant ${vInfo.name}`;
+      document.getElementById('switcher-desc').textContent = vInfo.desc;
+    }
+
+    function selectDay(dayId) {
+      state.selectedDayId = dayId;
+      renderAll();
+    }
+
+    function updateDayField(field, rawVal) {
+      const day = getActiveDay();
+      if (['weight', 'sleepH', 'se', 'nrs', 'rhrDelta'].includes(field)) {
+        day[field] = rawVal === '' ? null : Number(rawVal);
+      } else {
+        day[field] = rawVal;
+      }
+      renderAll();
+    }
+
+    function updateSupp(slotKey, checked) {
+      const day = getActiveDay();
+      day.supps[slotKey] = checked;
+      renderAll();
+    }
+
+    function updateAux(weekNum, field, val) {
+      state.weeklyAux[weekNum][field] = val;
+      renderAll();
+    }
+
+    function applyPreset(mode) {
+      const day = getActiveDay();
+      day.trafficOverride = null;
+      if (mode === 'green') {
+        day.sleepH = 7.4; day.se = 89; day.nrs = 0; day.rhrDelta = 0;
+      } else if (mode === 'yellow') {
+        day.sleepH = 6.0; day.se = 82; day.nrs = 2; day.rhrDelta = 3;
+      } else if (mode === 'red') {
+        day.sleepH = 5.0; day.se = 76; day.nrs = 4; day.rhrDelta = 6;
+      }
+      renderAll();
+    }
+
+    function setBTab(tabName) {
+      state.bTab = tabName;
+      renderAll();
+    }
+
+    function openCatalog(specKey) {
+      const spec = CATALOG_SPECS[specKey] || CATALOG_SPECS['cali-30'];
+      const day = getActiveDay();
+      const readiness = evaluateReadiness(day);
+      document.getElementById('drawer-title').textContent = spec.title;
+      document.getElementById('drawer-body').innerHTML = `
+        ${readiness.grade !== 'green' ? `
+          <div style="background:var(--yellow-bg);border:1px solid var(--yellow);color:var(--yellow);padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:12.5px;font-weight:600;">
+            ${spec.yellowNote}
+          </div>
+        ` : ''}
+        <div style="margin-bottom:14px;">
+          ${spec.steps.map(s => `<div class="drawer-step">${s}</div>`).join('')}
+        </div>
+        <div style="font-size:12.5px;border-top:1px solid var(--border);padding-top:12px;">
+          🔗 원문 마크다운 아키텍처 딥링크: <a href="${spec.link}" target="_blank">${spec.link}</a>
+        </div>
+      `;
+      document.getElementById('catalog-drawer').showModal();
+    }
+
+    function copyMeasurementsRow() {
+      const agg = computeWeekAggregation(1);
+      navigator.clipboard?.writeText(agg.measurementsRow);
+      alert(`클립보드에 복사되었습니다:\n\n${agg.measurementsRow}`);
+    }
+
+    function setVariant(vKey) {
+      state.variant = vKey;
+      const url = new URL(window.location.href);
+      url.searchParams.set('variant', vKey);
+      window.history.replaceState({}, '', url);
+      renderAll();
+    }
+
+    function cycleVariant(delta) {
+      const idx = VARIANTS.findIndex(v => v.key === state.variant);
+      const nextIdx = (idx + delta + VARIANTS.length) % VARIANTS.length;
+      setVariant(VARIANTS[nextIdx].key);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'ArrowLeft') cycleVariant(-1);
+      if (e.key === 'ArrowRight') cycleVariant(1);
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
