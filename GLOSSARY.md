@@ -28,3 +28,7 @@ _Avoid_: Experiment, Challenge, Sprint, Campaign
 가용 시간과 당일 컨디션에 맞춰 선택·조합하여 수행하는 단일 운동 세션의 설계 단위(예: 10분 익스프레스, 30분 기본기 등). 상시 채택된 주간 생활 체계인 `Protocol`과 구별된다.
 _Avoid_: Workout Routine, Daily Program
 
+**Meal Module**:
+조리 가용 시간, 식사 장소(홈쿡·편의점·외식/회식), 당일 훈련 일정에 맞춰 끼니 또는 일일 단위로 선택·조합하는 영양 및 식사 설계 단위(예: 5분 익스프레스, 1플레이트 홈쿡, 외식 디펜스 등). 상시 채택된 기본 식단 원칙인 `Protocol`과 구별된다.
+_Avoid_: Diet Plan, Menu, Recipe, Meal Routine
+
