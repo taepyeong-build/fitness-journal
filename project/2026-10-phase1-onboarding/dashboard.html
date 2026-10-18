@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[2026-10] Phase 1 실행 & 생체 지표 대시보드 — Personal Health Repository</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --surface: #131922;
+      --surface-2: #1a222d;
+      --surface-3: #232e3c;
+      --border: #2a3646;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.14);
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --yellow: #eab308;
+      --yellow-bg: rgba(234, 179, 8, 0.14);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.14);
+      --radius: 12px;
+      --font: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.5;
+      padding-bottom: 48px;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Top Persistence & Context Bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(19, 25, 34, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-title h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .phase-pill {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+    .day-selector-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    select, input[type="number"], input[type="time"], input[type="text"] {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: var(--font);
+    }
+    select:focus, input:focus {
+      outline: 2px solid var(--accent);
+      border-color: transparent;
+    }
+    button {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s ease;
+      font-family: var(--font);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    button:hover {
+      background: var(--surface-3);
+      border-color: var(--text-muted);
+    }
+    button.primary {
+      background: var(--accent);
+      color: #061018;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    button.primary:hover {
+      filter: brightness(1.08);
+    }
+    button.success {
+      background: rgba(34, 197, 94, 0.18);
+      color: var(--green);
+      border-color: rgba(34, 197, 94, 0.5);
+    }
+
+    .sync-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--yellow);
+      display: inline-block;
+    }
+    .dot.connected {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    /* Quick Reference Sub-bar */
+    .sub-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+    .sub-bar-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Variant A: 2-Column Split Workbench */
+    .workbench-grid {
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1680px;
+      margin: 0 auto;
+      align-items: start;
+    }
+    @media (max-width: 1180px) {
+      .workbench-grid { grid-template-columns: 1fr; }
+    }
+    .col-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+    .workbench-grid > *, .card, .module-box { min-width: 0; }
+    @media (max-width: 600px) {
+      .top-bar, .sub-bar { padding: 10px 12px; }
+      .workbench-grid { padding: 12px; gap: 12px; }
+      .card { padding: 12px; }
+      .brand-title { flex-wrap: wrap; }
+      .day-selector-group { min-width: 0; max-width: 100%; }
+      #day-select { width: min(250px, 65vw); }
+      .md-preview-label { flex-wrap: wrap; gap: 6px; }
+      .module-header > div { flex-wrap: wrap; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
+
+    /* Cards & Badges */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .card-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .traffic-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12.5px;
+    }
+    .traffic-green { background: var(--green-bg); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.4); }
+    .traffic-yellow { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(234, 179, 8, 0.4); }
+    .traffic-red { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.4); }
+    .traffic-none { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .tag {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--surface-3);
+      color: var(--text-muted);
+      font-family: var(--mono);
+    }
+
+    .md-preview-box {
+      background: #080b0f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: #a5d6ff;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .md-preview-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Module Briefing Cards */
+    .module-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+    .module-box.downshifted {
+      border-color: rgba(234, 179, 8, 0.6);
+      background: rgba(234, 179, 8, 0.06);
+    }
+    .module-box.hardstop {
+      border-color: rgba(239, 68, 68, 0.65);
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .module-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .module-name { font-weight: 700; font-size: 13.5px; }
+
+    .supp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    @media (max-width: 560px) {
+      .supp-grid { grid-template-columns: 1fr; }
+    }
+    .supp-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .supp-item.checked {
+      border-color: rgba(34, 197, 94, 0.45);
+      background: rgba(34, 197, 94, 0.06);
+    }
+    .supp-item input { margin-top: 3px; }
+
+    /* Week Tabs */
+    .week-tabs {
+      display: inline-flex;
+      background: var(--surface-2);
+      padding: 3px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      gap: 2px;
+      flex-wrap: wrap;
+    }
+    .week-tab {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .week-tab.active {
+      background: var(--accent);
+      color: #061018;
+      font-weight: 700;
+    }
+
+    /* Table styling */
+    .log-table-wrap { overflow-x: auto; }
+    table.log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+    table.log-table th, table.log-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    table.log-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      background: var(--surface-2);
+      font-size: 11.5px;
+      white-space: nowrap;
+    }
+    table.log-table tr.selected-row {
+      background: rgba(56, 189, 248, 0.12);
+      outline: 1px solid rgba(56, 189, 248, 0.45);
+    }
+    table.log-table tr:hover {
+      background: rgba(255, 255, 255, 0.035);
+      cursor: pointer;
+    }
+
+    /* Progression Gate List */
+    .gate-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 720px) {
+      .gate-grid { grid-template-columns: 1fr; }
+    }
+    .gate-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12.5px;
+    }
+    .gate-progress {
+      height: 6px;
+      background: var(--surface-3);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 6px 0;
+    }
+    .gate-bar {
+      height: 100%;
+      background: var(--green);
+      transition: width 0.25s ease;
+    }
+    .gate-check-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      cursor: pointer;
+    }
+
+    /* Native Dialog Drawer for Self-Contained Catalog (modern-web-guidance compliant) */
+    dialog#catalog-drawer {
+      margin: 0 0 0 auto;
+      height: 100vh;
+      max-height: 100vh;
+      width: min(560px, 94vw);
+      background: var(--surface);
+      color: var(--text);
+      border: none;
+      border-left: 1px solid var(--border);
+      padding: 24px;
+      box-shadow: -12px 0 36px rgba(0, 0, 0, 0.65);
+      overflow-y: auto;
+    }
+    dialog:modal {
+      overscroll-behavior: contain;
+    }
+    dialog::backdrop {
+      overflow: hidden;
+      overscroll-behavior: contain;
+      background-color: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(2px);
+    }
+    .drawer-step {
+      background: var(--surface-2);
+      border-left: 3px solid var(--accent);
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-field label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0d1620;
+      color: var(--text);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.65);
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Persistence & Day Navigation Bar -->
+  <header class="top-bar">
+    <div class="brand-title">
+      <span class="phase-pill">2026-10 Phase 1</span>
+      <h1>기초 적응 · 대사 점화 4주 메조사이클</h1>
+    </div>
+
+    <div class="day-selector-group">
+      <button onclick="stepDay(-1)" title="이전 일자">◀</button>
+      <label for="day-select" style="font-size:12px;color:var(--text-muted);">활성 일자:</label>
+      <select id="day-select" onchange="selectDay(this.value)"></select>
+      <button onclick="stepDay(1)" title="다음 일자">▶</button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div class="sync-status" id="file-sync-badge">
+        <span class="dot" id="file-sync-dot"></span>
+        <span id="file-sync-text" role="status" aria-live="polite">브라우저 백업 확인 중 · log.md 미연결</span>
+      </div>
+      <button class="primary" onclick="connectLogFile()">📂 log.md 파일 연결</button>
+      <button id="btn-save-file" onclick="saveToLogFile()" style="display:none;" class="success">💾 log.md 저장</button>
+      <button onclick="copyFullLogMarkdown()">📋 전체 log.md 복사</button>
+      <button onclick="downloadLogMarkdown()">⬇️ log.md 다운로드</button>
+      <button onclick="resetToCanonicalLog()" title="파일 연결 해제 후 브라우저 기록을 초기 원본으로 복원">🔄 초기화</button>
+      <input type="file" id="fallback-file-input" accept=".md,text/markdown,text/plain" style="display:none;" onchange="handleFallbackFileSelect(event)" />
+    </div>
+  </header>
+
+  <!-- Quick Catalog & Domain Deep-Links Bar -->
+  <nav class="sub-bar" aria-label="내장 모듈 카탈로그 및 원문 링크">
+    <div class="sub-bar-links">
+      <span style="color:var(--text-muted);font-weight:700;">내장 카탈로그 드로어:</span>
+      <button onclick="openCatalog('circadian-24h')">🕐 24h 일주기 앵커</button>
+      <button onclick="openCatalog('cali-30')">🤸 칼리스데닉스 30분/60분</button>
+      <button onclick="openCatalog('run-lv0')">🏃 러닝 Lv 0 보행</button>
+      <button onclick="openCatalog('meal-metabolic')">🥗 식사 순서 · 2-Track</button>
+      <button onclick="openCatalog('meal-defense')">🏢 오피스 외식 · 회식 방어</button>
+      <button onclick="openCatalog('recovery-mod2')">🌙 수면 10-10-10 · 상기도 안전</button>
+      <button onclick="openCatalog('if-then')" style="border-color:rgba(56,189,248,0.4);color:var(--accent);">⚡ If-Then 긴급 대응</button>
+    </div>
+    <div style="display:flex;gap:12px;color:var(--text-muted);">
+      <a href="./README.md" target="_blank">📄 프로젝트 README.md</a>
+      <a href="./log.md" target="_blank">📝 원본 log.md</a>
+      <a href="../../profile/protocols.md" target="_blank">🧭 protocols.md</a>
+      <a href="../../profile/measurements.md" target="_blank">📐 measurements.md</a>
+    </div>
+  </nav>
+
+  <!-- Main 2-Column Split Workbench (Variant A) -->
+  <main id="app-mount"></main>
+
+  <!-- Self-Contained Module Catalog Drawer (Native <dialog> with closedby="any") -->
+  <dialog id="catalog-drawer" closedby="any" aria-labelledby="drawer-title">
+    <form method="dialog" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 id="drawer-title" style="margin:0;font-size:16px;">모듈 상세 큐</h3>
+      <button type="submit">✕ 닫기 (ESC)</button>
+    </form>
+    <div id="drawer-body"></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // =========================================================================
+    // 1. CANONICAL EMBEDDED log.md (100% Exact Mirror of project/2026-10-phase1-onboarding/log.md)
+    // =========================================================================
+    const DEFAULT_LOG_MD = `# [2026-10] Phase 1 실행 & 생체 지표 로그 (Execution & Telemetry Log)
+
+> **계획 본문**: [\`README.md\`](./README.md) | **신호등 기준**: [\`profile/protocols.md\` §2.2](../../profile/protocols.md#22-아침-스마트워치통증-기반-3단계-신호등-readiness-traffic-light) | **수치 누적표**: [\`profile/measurements.md\`](../../profile/measurements.md)
+> - **기록 원칙**: 매일 아침 신호등(\`🟢/🟡/🔴\`)과 핵심 지표·수행 모듈만 1줄로 간결히 기록하고, 매주 토요일 종료 시 주간 준수율(\`≥ 85%\`, 7일 중 6일 이상)을 집계한다.
+
+---
+
+## 📊 Week 1 (\`2026-10-18 일 ~ 2026-10-24 토\`) — 리듬 고정 & 무충격 기초 개통 (\`Lv 1\` / 러닝 \`Lv 0\`)
+
+- **주간 요약**: 7d MA 체중 \`___._ kg\` (시작 \`98.2 kg\`) | 허리둘레 \`___._ cm\` | 평균 실수면 \`__h __m\` (SE \`__%\`, RHR \`__ bpm\`, 최저 SpO2 \`__%\`)
+- **주간 준수율 (목표 \`≥ 6/7일\`)**: 기상·취침 앵커 \`__ / 7\` | \`19:00\` 식사 마감 & 독소 차단 \`__ / 7\` | 정규 운동 완수 \`__ / 6회\` | 관절·첫발 최고 통증 \`NRS __\`
+
+| 일자 (요일) | 신호등 | 공복 체중 / 수면(SE) / 첫발·관절 NRS | 운동 (\`Session Module\`) | 영양 (\`Meal\` & 마감 시각) | 수면 (\`Recovery\` & 취침 시각) | 한 줄 메모 |
+| :---: | :---: | :---: | :--- | :--- | :--- | :--- |
+| **10-18 (일)** | \`🟢\` | \`98.2kg\` / \`__h(__%)\` / \`NRS 0\` | 🏃 [\`Lv 0\` 보행 40분](../../research/cardio-metabolic-running-architecture.md#2-3대-공식-러닝-session-module-상세-구조) | [\`Sunday 30-Min Prep\`](../../research/metabolic-nutrition-recomposition-architecture.md#3-배달음식-원천-차단을-위한-3대-상시-스톡always-on-stock-및-일요일-30분-밀프렙sunday-30-min-prep) · \`18:30\` 마감 | 측와위 세팅 · \`Module 2\` (\`22:30\`) | 첫 실행일: 주간 스톡 준비 및 기준선 측정 |
+| **10-19 (월)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 35~40분 | 휴식일 티어 (\`__ : __\` 마감) | \`Module 2\` (\`__ : __\`) | |
+| **10-20 (화)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 [칼리스데닉스 30분 \`Lv 1\` (\`8회×2~3세트\`)](../../research/functional-calisthenics-architecture.md#2-3대-공식-session-module-상세-구조) | 메타볼릭 데이 (\`__ : __\` 마감) | \`Module 2 Track A\` (\`__ : __\`) | |
+| **10-21 (수)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 35~40분 | 휴식일 티어 (\`__ : __\` 마감) | \`Module 2 Track B\` (\`__ : __\`) | |
+| **10-22 (목)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 30분 \`Lv 1\` (\`8회×2~3세트\`) | 메타볼릭 데이 (\`__ : __\` 마감) | \`Module 2 Track A\` (\`__ : __\`) | |
+| **10-23 (금)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 35~40분 (또는 10분 PHA) | 휴식일 티어 (\`__ : __\` 마감) | \`Module 2\` (\`__ : __\`) | |
+| **10-24 (토)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 [칼리스데닉스 60분 확장 \`Lv 1\`](../../research/functional-calisthenics-architecture.md#2-3대-공식-session-module-상세-구조) | 메타볼릭 데이 (\`__ : __\` 마감) | \`Module 5\` (\`__ : __\`) | |
+
+---
+
+## 📊 Week 2 (\`2026-10-25 일 ~ 2026-10-31 토\`) — 기본 볼륨 확장 & \`Lv 2\` 식단/수면 승급 심사
+
+- **주간 요약**: 7d MA 체중 \`___._ kg\` (\`___ kg\`) | 허리둘레 \`___._ cm\` | 평균 실수면 \`__h __m\` (SE \`__%\`, RHR \`__ bpm\`, 최저 SpO2 \`__%\`)
+- **주간 준수율 (14일 중 \`≥ 12일\` 달성 시 W3 식단·수면 \`Lv 2\` 승급)**: 기상·취침 \`__ / 7\` | \`19:00\` 마감 & 모듈 \`__ / 7\` | 정규 운동 \`__ / 6회\` | 최고 통증 \`NRS __\`
+
+| 일자 (요일) | 신호등 | 공복 체중 / 수면(SE) / 첫발·관절 NRS | 운동 (\`Session Module\`) | 영양 (\`Meal\` & 마감 시각) | 수면 (\`Recovery\` & 취침 시각) | 한 줄 메모 |
+| :---: | :---: | :---: | :--- | :--- | :--- | :--- |
+| **10-25 (일)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 50분 | \`Sunday 30-Min Prep\` (\`__ : __\`) | \`Module 2\` (\`__ : __\`) | |
+| **10-26 (월)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 40분 | 휴식일 티어 (\`__ : __\`) | \`Module 2\` (\`__ : __\`) | |
+| **10-27 (화)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 30분 \`Lv 1\` (\`10회×3세트\`) | 메타볼릭 데이 (\`__ : __\`) | \`Module 2 Track A\` (\`__ : __\`) | |
+| **10-28 (수)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 40분 | 휴식일 티어 (\`__ : __\`) | \`Module 2 Track B\` (\`__ : __\`) | |
+| **10-29 (목)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 30분 \`Lv 1\` (\`10회×3세트\`) | 메타볼릭 데이 (\`__ : __\`) | \`Module 2 Track A\` (\`__ : __\`) | |
+| **10-30 (금)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 40분 | 휴식일 티어 (\`__ : __\`) | \`Module 2\` (\`__ : __\`) | |
+| **10-31 (토)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 60분 \`Lv 1\` (\`10회×3세트\`) | 메타볼릭 데이 (\`__ : __\`) | \`Module 5\` (\`__ : __\`) | W1~W2 14일 준수율 점검 → W3 \`Lv 2\` 승급 판정 |
+
+---
+
+## 📊 Week 3 (\`2026-11-01 일 ~ 2026-11-07 토\`) — 식단·수면 \`Lv 2\` 가동 & 운동 \`Lv 1\` 상한 볼륨 검증
+
+- **주간 요약**: 7d MA 체중 \`___._ kg\` (\`___ kg\`) | 허리둘레 \`___._ cm\` | 평균 실수면 \`__h __m\` (SE \`__%\`, RHR \`__ bpm\`, 최저 SpO2 \`__%\`)
+- **주간 준수율**: 4대 컷오프(\`12:00\` 커피·\`20:30\` 수분) \`__ / 7\` | \`13:11\`(\`18:30\` 마감) & 식전 차전자피 \`__ / 7\` | 운동 상한 볼륨 \`__ / 6회\` | 최고 통증 \`NRS __\`
+
+| 일자 (요일) | 신호등 | 공복 체중 / 수면(SE) / 첫발·관절 NRS | 운동 (\`Session Module\`) | 영양 (\`Lv 2\` 프리로딩 & 마감) | 수면 (\`Lv 2\` 컷오프 & 취침) | 한 줄 메모 |
+| :---: | :---: | :---: | :--- | :--- | :--- | :--- |
+| **11-01 (일)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 60분 | \`Sunday Prep\` · 차전자피 (\`18:30\`) | \`Module 2\` (\`22:30\`) | |
+| **11-02 (월)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 40~45분 | 휴식일 티어 (\`__ : __\`) | \`Module 2\` (\`__ : __\`) | |
+| **11-03 (화)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 30분 \`Lv 1\` (\`12회×3세트\`) | 메타볼릭 데이 (\`__ : __\`) | \`Module 2 Track A\` (\`__ : __\`) | 1차 상한 볼륨 검증 (\`RIR ≥ 2\` 체크) |
+| **11-04 (수)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 40~45분 | 휴식일 티어 (\`__ : __\`) | \`Module 2 Track B\` (\`__ : __\`) | |
+| **11-05 (목)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 30분 \`Lv 1\` (\`12회×3세트\`) | 메타볼릭 데이 (\`__ : __\`) | \`Module 2 Track A\` (\`__ : __\`) | 2회 연속 상한 볼륨 재현 검증 |
+| **11-06 (금)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 보행 40~45분 | 휴식일 티어 (\`__ : __\`) | \`Module 2\` (\`__ : __\`) | |
+| **11-07 (토)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 60분 \`Lv 1\` (\`12회×3세트\`) | 메타볼릭 데이 (\`__ : __\`) | \`Module 5\` (\`__ : __\`) | |
+
+---
+
+## 📊 Week 4 (\`2026-11-08 일 ~ 2026-11-14 토\`) — 1차 정기 결합조직 디로딩 (\`-33%\`) & 최종 승급 심사
+
+- **주간 요약**: 7d MA 체중 \`___._ kg\` (\`___ kg\`) | 허리둘레 \`___._ cm\` | 평균 실수면 \`__h __m\` (SE \`__%\`, RHR \`__ bpm\`, 최저 SpO2 \`__%\`)
+- **주간 준수율**: 수면 \`+30분\`(\`22:00\` 취침) \`__ / 7\` | 클린 열량(\`~2,050 kcal\`)·콜라겐 유지 \`__ / 7\` | 디로딩 운동 \`__ / 6회\` | 최고 통증 \`NRS __\`
+
+| 일자 (요일) | 신호등 | 공복 체중 / 수면(SE) / 첫발·관절 NRS | 운동 (\`Deload -33%\`) | 영양 (\`Lv 2\` 열량·단백질 유지) | 수면 (\`22:00\` 조기 취침) | 한 줄 메모 |
+| :---: | :---: | :---: | :--- | :--- | :--- | :--- |
+| **11-08 (일)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 가벼운 보행 30분 | \`Sunday Prep\` (\`__ : __\`) | \`Module 2\` (\`22:00\`) | |
+| **11-09 (월)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 가벼운 보행 30분 | 클린 유지 (\`__ : __\`) | \`Module 2\` (\`22:00\`) | |
+| **11-10 (화)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 디로딩 (\`10~12회×2세트\`) | 클린 유지 (\`__ : __\`) | \`Module 2 Track A\` (\`22:00\`) | |
+| **11-11 (수)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 가벼운 보행 30분 | 클린 유지 (\`__ : __\`) | \`Module 2 Track B\` (\`22:00\`) | |
+| **11-12 (목)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 디로딩 (\`10~12회×2세트\`) | 클린 유지 (\`__ : __\`) | \`Module 2 Track A\` (\`22:00\`) | |
+| **11-13 (금)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🏃 \`Lv 0\` 가벼운 보행 30분 | 클린 유지 (\`__ : __\`) | \`Module 2\` (\`22:00\`) | |
+| **11-14 (토)** | \` \` | \`___._kg\` / \`__h(__%)\` / \`NRS _\` | 🤸 칼리스데닉스 디로딩 (\`2세트\`) & 게이트 점검 | 클린 유지 (\`__ : __\`) | \`Module 5\` (\`22:00\`) | Phase 1 종료 & [\`README.md\` §4](./README.md#4-종료-심사-및-회고-progression-gate--close-out) 최종 판정 |
+`;
+
+    // =========================================================================
+    // 2. DOMAIN CATALOG SPECS & WEEKLY METADATA
+    // =========================================================================
+    const WEEK_META = {
+      1: {
+        title: 'Week 1 (10/18 일 ~ 10/24 토)',
+        subtitle: '리듬 고정 & 무충격 기초 개통 (Lv 1 / 러닝 Lv 0)',
+        intent: '의지력 소모 없이 돌아가는 12:12 식사·수면 환경을 구축하고, 무충격 범위에서 신경계와 관절 정렬(8회×2~3세트, 보행 35~40분)을 깨운다.',
+        mealCutoff: '19:00',
+        bedCutoff: '22:45',
+        endDate: '2026-10-24 (W1)'
+      },
+      2: {
+        title: 'Week 2 (10/25 일 ~ 10/31 토)',
+        subtitle: '기본 볼륨 확장 & Lv 2 식단/수면 승급 심사',
+        intent: '칼리스데닉스 10회×3세트 및 주말 50분 보행으로 기초 볼륨을 확장하고, W1~W2 14일 중 12일(≥85%) 준수율을 달성하여 W3 식단·수면 Lv 2 승급을 확정한다.',
+        mealCutoff: '19:00',
+        bedCutoff: '22:45',
+        endDate: '2026-10-31 (W2)'
+      },
+      3: {
+        title: 'Week 3 (11/01 일 ~ 11/07 토)',
+        subtitle: '식단·수면 Lv 2 가동 & 운동 Lv 1 상한 볼륨 검증',
+        intent: '13:11 식사 창(18:30 마감)·식전 차전자피 프리로딩(Slot 1)과 4대 수면 컷오프를 가동하고, 칼리스데닉스 Lv 1 상한 볼륨(12회×3세트, RIR ≥ 2) 2회 연속 재현 및 주간 보행 150~170분을 검증한다.',
+        mealCutoff: '18:30',
+        bedCutoff: '22:45',
+        endDate: '2026-11-07 (W3)'
+      },
+      4: {
+        title: 'Week 4 (11/08 일 ~ 11/14 토)',
+        subtitle: '1차 정기 결합조직 디로딩 (-33%) & 최종 승급 심사',
+        intent: '3주차에 피크에 달하는 경골 다공성과 건 콜라겐 미세피로를 리셋하기 위해 운동 볼륨을 -33%(2세트 / 30분 보행) 감축하되, 열량(~2,050kcal)·단백질·콜라겐 유지 및 22:00 조기 취침(+30분)으로 초회복을 완성한다.',
+        mealCutoff: '18:30',
+        bedCutoff: '22:15',
+        endDate: '2026-11-14 (W4)'
+      }
+    };
+
+    const DAY_ROLE_BY_DOW = {
+      '일': '주간 기준선 측정 · 밀프렙 · 지구력 보행',
+      '월': '주초 혈당 방어 · 무충격 유산소',
+      '화': '평일 주력 근력 #1 (GLUT4 점화)',
+      '수': '주중 활동성 회복 · 미토콘드리아 보행',
+      '목': '평일 주력 근력 #2 (48h 간격)',
+      '금': '주말 전 대사 방어 · 경사/평지 보행',
+      '토': '주말 통합 근력 · 무브먼트 · 건 등척성'
+    };
+
+    const CATALOG_SPECS = {
+      'circadian-24h': {
+        title: '🕐 24시간 코어 일주기 앵커 (Circadian Anchors)',
+        link: '../../profile/protocols.md#21-24시간-코어-일주기-앵커-circadian-anchors',
+        steps: [
+          '🌅 [06:00 기상 (±15분, 주말 최대 07:00)] 기상 직후 미온수 300~500mL + 10,000 Lux 광 점화(15~20분) + 배뇨 후 공복 체중·아침 첫발 관절 통증(NRS)·워치 수면 지표 확인',
+          '🍳 [07:00~07:30 아침 식사 (Meal 1)] 기상 60~90분 내 단백질 35~45g 선행 섭취 / 첫 카페인은 코르티솔 피크 이후인 07:30~08:00 이후 섭취',
+          '☕ [12:00 카페인 컷오프 & 12:30 점심 (Meal 2)] 정오 이후 카페인 전면 금지 + 식후 15분 평지 산책 (필요시 12:45~13:15 20분 파워냅/NSDR, 14:00 이후 낮잠 금지)',
+          '🍽️ [18:30~19:00 저녁 식사 (Meal 3) 및 일일 칼로리 마감] 취침 3.5~4시간 전 식사 종료 (평일 저녁 운동 시 2-Track 오퍼레이션 적용)',
+          '🌙 [19:30 고강도 운동 마감 & 20:30 수분 마감] 실내 조명 디밍(≤ 10 lux) → 20:45 온열 샤워/족욕 체온 덤핑 → 21:15 Slot 4 마그네슘 → 21:30 스크린 오프 & Module 2 → 22:30 소등 취침'
+        ],
+        yellowNote: '🟡 Yellow / 🔴 Red 발동 시: 점심 12:45 Module 3(20분 NSDR) 필수 수행 및 밤 22:00 조기 취침으로 수면 부채를 즉각 상환합니다.'
+      },
+      'cali-30': {
+        title: '🤸 칼리스데닉스 30분 평일 주력 & 60분 주말 확장 (Lv 1)',
+        link: '../../research/functional-calisthenics-architecture.md#2-3대-공식-session-module-상세-구조',
+        steps: [
+          '1️⃣ [00~05분] 좌식 해독 프리헵: 흉추 폼롤러 신전 + 고관절 90/90 + 손목 예열 (운동 30~60분 전 콜라겐 15g + 비타민 C 50~100mg 섭취 확인)',
+          '2️⃣ [05~10분] 무브먼트 프라이머: 패러렛 비스트 홀드(무릎 1인치 부양 20초×2) + 흉추 회전 리치 (토요일 60분 확장 시 3축 무브먼트 플로우 15분 수행)',
+          '3️⃣ [10~26분] 메인 페어드 세트 (HSR 3초 하강 - 1초 정지 - 2초 수축, RIR ≥ 2): [A1] 패러렛 60cm 인클라인 푸시업 + [A2] 서스펜션 60° 로우 / [B1] 박스 스쿼트 + [B2] 발 지지 스카풀라 행 & 월 싯 45초',
+          '4️⃣ [주차별 볼륨] W1: 8회×2~3세트 → W2: 10회×3세트 → W3(상한 검증): 12회×3세트(등척성 45초×3세트) → W4(디로딩): 10~12회×2세트(RIR 3~4)',
+          '5️⃣ [26~30분] 감압 쿨다운: 데드행 척추 감압 및 횡격막 호흡'
+        ],
+        yellowNote: '🟡 Yellow 다운시프트 발동 시: 20분 미니멈 모듈(전 종목 2세트 감축, RIR 3~4 여유 유지) 또는 10분 대사 방어 익스프레스(PHA)로 전환합니다.'
+      },
+      'run-lv0': {
+        title: '🏃 심폐 러닝 Lv 0 무충격 Zone 2 파워워킹 (평일 35~45분 / 주말 40~60분)',
+        link: '../../research/cardio-metabolic-running-architecture.md#2-3대-공식-러닝-session-module-상세-구조',
+        steps: [
+          '1️⃣ [5분] 발목·아킬레스건 동적 모빌리티 + 둔근 점화 (고중량 98.2kg 보호를 위해 비행기 Flight phase 점프/조깅 충격 전면 배제)',
+          '2️⃣ [본 세션] 평일 35~45분 / 일요일 지구력 세션(W1 40분 → W2 50분 → W3 60분 → W4 디로딩 30분) 빠른 평지·완만한 경사 보행',
+          '3️⃣ [심박 Zone 2 통제] 목표 심박 119~137 bpm (코 호흡 및 문장 대화 가능 강도, 세션 전후반 심박 드리프트 < 5% 유지)',
+          '4️⃣ [실시간 브레이크] 심박수 138 bpm 초과 시 즉시 보폭/경사 축소 · 정강이/아킬레스/족저 통증 NRS ≥ 2 감지 시 즉시 중단',
+          '5️⃣ [5분] 종아리·족저근막 감압 스트레칭'
+        ],
+        yellowNote: '🟡 Yellow 다운시프트 발동 시: 경사도 0% 평지 30분 저강도 회복 보행(Zone 1~2 하단)으로 자동 전환합니다.'
+      },
+      'meal-metabolic': {
+        title: '🥗 대사 영양 매크로 · 5단계 식사 순서 · 저녁 운동 2-Track',
+        link: '../../research/metabolic-nutrition-recomposition-architecture.md#1-평일-저녁-운동18002000--18301900-식사-마감-양립-2-track-오퍼레이션',
+        steps: [
+          '📌 일일 공통 고정: 단백질 150~160g (정규 3끼 35~45g + 15:30 브릿지 25~30g) | 식이섬유 35~45g | 수분 2.8~3.2L(20:30 마감) | 3대 대사 독소(액상과당·배달 튀김·마블링 적색육) 0g',
+          '⚖️ 2-Tier 탄수화물 사이클링: 근력 리차지 데이(화·목·토) 2,150~2,200 kcal (순탄수 180~200g) / 유산소·휴식일(일·월·수·금) 1,900~1,950 kcal (순탄수 120~140g)',
+          '🥗 5단계 식사 순서 (W3 Lv 2 전면 적용): ① 식전 15~20분 차전자피 5~6g+사과식초 15mL+물 300mL(Slot 1) → ② 잎채소/해조류 → ③ 단백질·불포화지방 → ④ 식힌 잡곡밥(RS3 저항성 전분) 마지막 섭취',
+          '⚡ 평일 저녁 운동 2-Track: [Track A 선행 식사] 17:30 식사 마감 후 19:00 운동 / [Track B 직후 식사] 16:00 WPI 브릿지 → 18:00 30분 운동 → 18:45 Module B 1플레이트 식사 마감'
+        ],
+        yellowNote: '🟡 Yellow 보강: 저녁 식사 시 저항성 전분(잡곡밥) +25~30g 추가 보강 / 🔴 Red 방어: 칼로리 적자 중단 및 유지 칼로리(2,450~2,550 kcal) 전환'
+      },
+      'meal-defense': {
+        title: '🏢 오피스 점심 외식 Green/Yellow/Red 선별표 & 회식 디펜스 (Module C · D)',
+        link: '../../research/metabolic-nutrition-recomposition-architecture.md#3-한국형-오피스-점심-외식--구내식당--편의점-green--yellow--red-실전-선별표-및-5대-방어-규칙',
+        steps: [
+          '🟢 [Green 최우선 선택] 생선구이 백반(고등어/삼치+된장국 건더기), 샤브샤브/포케(소스 별도), 수육/보쌈 정식(살코기+쌈채소), 구내식당 단백질 메인+채소 2찬',
+          '🟡 [Yellow 방어 규칙 적용] 순두부/김치찌개(국물 70% 남기기+달걀 추가), 비빔밥(고추장 1/3만+나물·계란 위주), 덮밥/면류(채소·단백질 선행 후 밥/면 1/2 남기기) + 식후 15분 산책 필수',
+          '🔴 [Red 전면 차단] 중식 튀김/짜장/짬뽕, 돈가스/제육볶음(물엿·당분 과다)+흰쌀밥 곱빼기, 떡볶이/분식, 액상과당 음료',
+          '🍻 [Module D 저녁 회식 디펜스] 참석 30분 전 WPI 1스쿱+차전자피 선행 → 구이류 살코기+쌈채소 공략 → 주류는 무당 소주/위스키 하이볼 최대 2잔(물 1:1 매칭) → 익일 아침 단식 금지(기상 60분 내 고단백 해장+수분·전해질 리셋)'
+        ],
+        yellowNote: '외식이나 회식이 발생해도 24시간 내 리셋 알고리즘을 실행하면 주간 준수율 궤도와 인슐린 감수성을 완벽히 방어할 수 있습니다.'
+      },
+      'recovery-mod2': {
+        title: '🌙 Recovery Module 2 (10-10-10 윈드다운) & 4단계 상기도 안전 사다리',
+        link: '../../research/sleep-circadian-metabolic-recovery-architecture.md#2-module-2--30분-표준-나이트타임-윈드다운-30-min-standard-nighttime-wind-down',
+        steps: [
+          '1️⃣ [21:30~21:40 환경·체온 덤핑] 전 구역 스크린 오프, 실내 조도 ≤ 10 lux 디밍, 침실 온도 18~20°C 세팅 (20:45 온수 샤워/족욕 + 21:15 마그네슘 300~400mg 선행)',
+          '2️⃣ [21:40~21:50 근막 감압] 화·목(근력일): Track A 상체·흉추 폼롤러 신전 및 견갑 이완 / 수·일(보행일): Track B 종아리·족저근막 볼 마사지 및 고관절 이완',
+          '3️⃣ [21:50~22:00 부교감 스위치] 생리적 한숨(Physiological Sigh) & 4-7-8 호흡 후 22:30(W4 22:00) 소등 입면 (토요일/디로딩일은 60분 Module 5 슬립 생츄어리로 확장)',
+          '🛡️ [4단계 상기도 안전 사다리] 고중량(98.2kg) 수면무호흡 예방을 위해 ① 비강 세척·외부 비강 확장기 → ② 경추 지지 베개 + 좌측 측와위(바디필로우) 고정 (92kg 미만 도달 전까지 수평 밀봉 구강 테이핑 엄격 금지)'
+        ],
+        yellowNote: '🟡 Yellow / 🔴 Red 발동 시: 밤 21:00 온열 족욕 후 Module 1(10분 긴급 뇌파 셧다운)을 수행하고 22:00에 조기 소등합니다.'
+      },
+      'if-then': {
+        title: '⚡ 상황별 If-Then 긴급 오토레귤레이션 가이드',
+        link: './README.md#32-상황별-예외-처리--오토레귤레이션-딥링크-if-then-pointers',
+        steps: [
+          '🛑 [운동 중 자세 붕괴 / 관절·하지 이상 감지] 칼리스데닉스 3초 하강 템포 붕괴 시 해당 세트 즉시 종료(Technical Failure) / 보행 중 정강이·아킬레스·족저 통증 NRS ≥ 2 발생 시 즉시 세션 중단 및 평지 감속',
+          '🧠 [야간 가짜 배고픔 (Craving Gate)] 15분 3단 차단 게이트: ① 따뜻한 물/캐모마일티 300mL 섭취 → ② 즉시 양치질 및 주방 조명 소등 → ③ 15분 타이머 후에도 실제 위장 공복 지속 시에만 무가당 그릭요거트/WPI 소량 허용',
+          '🌙 [새벽 02:00~03:30 중도 각성] 스마트폰 시계 확인 절대 금지 → ① 구강 건조/코막힘 시 비강 확장기·측와위 재정렬, ② 심박 상승/식은땀(야간 저혈당 반동) 시 저녁 저항성 전분 보강 점검 및 4-7-8 호흡, ③ 20분 이상 불면 시 침대 이탈 후 미등 독서',
+          '📉 [수면 < 5.5h 또는 음주 익일 (🔴 Red)] 모든 근력·보행 훈련 Hard Stop → 칼로리 적자 중단(유지 칼로리 2,450~2,550 kcal 방어) + 점심 20분 NSDR + 밤 21:30 조기 입면'
+        ],
+        yellowNote: '실전 예외 발생 시 완벽주의 포기 대신 즉시 방어 모듈(Module D / Module 1)로 전환하여 주간 ≥ 85%(6/7일) 궤도를 사수합니다.'
+      }
+    };
+
+    // =========================================================================
+    // 3. LOSSLESS log.md PARSER & SERIALIZER (Issue #26 Specification)
+    // =========================================================================
+    function extractMealBaseAndTemplate(rawMealCell) {
+      const trimmed = rawMealCell.trim();
+      const timeMatch = trimmed.match(/`(__ : __|\d{2}:\d{2})`/);
+      const timeVal = timeMatch && timeMatch[1] !== '__ : __' ? timeMatch[1] : '';
+      const template = trimmed.replace(/`(__ : __|\d{2}:\d{2})`/, '`{TIME}`');
+      // Human-readable label without markdown link URLs
+      const label = trimmed
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\s*·?\s*\(?`(__ : __|\d{2}:\d{2})`(\s*마감)?\)?/g, '')
+        .replace(/`/g, '')
+        .trim();
+      return { template, timeVal, label: label || '기본 식단 모듈' };
+    }
+
+    function extractRecoveryBaseAndTemplate(rawRecoveryCell) {
+      const trimmed = rawRecoveryCell.trim();
+      const timeMatch = trimmed.match(/\(`(__ : __|\d{2}:\d{2})`\)/);
+      const timeVal = timeMatch && timeMatch[1] !== '__ : __' ? timeMatch[1] : '';
+      const template = trimmed.replace(/\(`(__ : __|\d{2}:\d{2})`\)/, '(`{TIME}`)');
+      const label = trimmed
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\s*\(`(__ : __|\d{2}:\d{2})`\)/g, '')
+        .replace(/`/g, '')
+        .trim();
+      return { template, timeVal, label: label || 'Module 2' };
+    }
+
+    function extractSessionInfo(rawSessionCell) {
+      let trimmed = rawSessionCell.trim();
+      let sessionDone = false;
+      let altTag = null;
+
+      const altMatch = trimmed.match(/^(.*?)\s*→\s*`([^`]+)`\s*✅$/);
+      if (altMatch) {
+        trimmed = altMatch[1].trim();
+        altTag = altMatch[2].trim();
+        sessionDone = true;
+      } else if (trimmed.endsWith('✅')) {
+        trimmed = trimmed.replace(/\s*✅$/, '').trim();
+        sessionDone = true;
+      }
+
+      const cleanLabel = trimmed
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/`/g, '');
+      const specKey = cleanLabel.includes('칼리스데닉스') ? 'cali-30' : 'run-lv0';
+      return {
+        rawSessionBase: trimmed,
+        sessionLabel: cleanLabel,
+        sessionSpec: specKey,
+        sessionDone,
+        altTag
+      };
+    }
+
+    const NUMERIC_RULES = {
+      weight: [0.1, 500], sleepH: [0, 24], se: [0, 100], nrs: [0, 10, true],
+      rhrDelta: [-300, 300], spo2: [0, 100], hrvDrop: [-100, 100], awakenings: [0, 30, true]
+    };
+    const EXTRA_DAY_FIELDS = ['rhrDelta', 'spo2', 'hrvDrop', 'awakenings', 'alcohol',
+      'trafficOverride', 'mealProtocolOk', 'mealRecorded', 'bedRecorded', 'bedOverride'];
+    const METADATA_PATTERN = /<!-- phase1-dashboard:v1\s+([\s\S]*?)\s+-->/;
+
+    function defaultGateChecks() {
+      return Object.fromEntries(['caliVolume', 'caliRir', 'caliPain', 'runVolume', 'runDrift',
+        'runPain', 'runDeload', 'nutriHunger', 'nutriProtocol', 'sleepWakeVar', 'sleepCutoffs']
+        .map(key => [key, false]));
+    }
+
+    function numericValue(value, field) {
+      if (value === null || value === undefined || String(value).trim() === '' || String(value).includes('_')) return null;
+      const num = Number(value);
+      const [min, max, integer] = NUMERIC_RULES[field];
+      if (!Number.isFinite(num) || num < min || num > max || (integer && !Number.isInteger(num))) {
+        throw new Error(`${field}: ${min}~${max}${integer ? ' 정수' : ''} 범위로 입력해 주세요.`);
+      }
+      return num;
+    }
+
+    function splitMarkdownRow(line) {
+      const cells = [];
+      let start = 0, slashes = 0;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '|' && slashes % 2 === 0) {
+          cells.push(line.slice(start, i));
+          start = i + 1;
+        }
+        slashes = line[i] === '\\' ? slashes + 1 : 0;
+      }
+      cells.push(line.slice(start));
+      return cells.slice(1, -1);
+    }
+
+    function validateParsedLog(parsed) {
+      if (parsed.days.length !== 28) throw new Error('Phase 1의 W1~W4, 28일 기록이 모두 필요합니다.');
+      parsed.days.forEach((day, i) => {
+        const date = new Date(Date.UTC(2026, 9, 18 + i));
+        if (day.id !== date.toISOString().slice(5, 10) || day.week !== Math.floor(i / 7) + 1 ||
+            day.dow !== '일월화수목금토'[i % 7]) {
+          throw new Error('날짜·요일·주차가 순서대로 있는 28일 log.md를 선택해 주세요.');
+        }
+      });
+      return parsed;
+    }
+
+    function parseLogMarkdown(mdText) {
+      const days = [];
+      const weeklyAux = Object.fromEntries([1, 2, 3, 4].map(w => [w, { waist: '', rhr: '', spo2: '' }]));
+      let currentWeek = 1;
+      for (const line of mdText.split(/\r?\n/)) {
+        const weekHeader = line.match(/^## 📊 Week (\d)/);
+        if (weekHeader) {
+          currentWeek = Number(weekHeader[1]);
+          if (!WEEK_META[currentWeek]) throw new Error('지원하지 않는 주차입니다.');
+          continue;
+        }
+        if (line.startsWith('- **주간 요약**:')) {
+          for (const [field, pattern] of Object.entries({ waist: /허리둘레\s*`([^`]+)\s*cm`/,
+            rhr: /RHR\s*`([^`]+)\s*bpm`/, spo2: /최저 SpO2\s*`([^`]+)%`/ })) {
+            const match = line.match(pattern);
+            if (match && !match[1].includes('_')) {
+              const value = Number(match[1]);
+              if (!Number.isFinite(value) || value < 0 || value > (field === 'spo2' ? 100 : 500)) {
+                throw new Error('주간 보조 지표의 숫자를 확인해 주세요.');
+              }
+              weeklyAux[currentWeek][field] = String(value);
+            }
+          }
+          continue;
+        }
+        if (!/^\|\s*\*\*\d{2}-\d{2}\s*\([^)]+\)\*\*\s*\|/.test(line)) continue;
+        const rawCells = splitMarkdownRow(line);
+        if (rawCells.length !== 7) throw new Error('일일 기록은 7열이어야 합니다. 메모의 |는 \\|로 적어 주세요.');
+        const [c1, c2, c3, c4, c5, c6, c7] = rawCells.map(c => c.trim());
+        const [, id, dow] = c1.match(/\*\*(\d{2}-\d{2})\s*\(([^)]+)\)\*\*/);
+        const parsedLight = c2.includes('🟢') ? 'green' : c2.includes('🟡') ? 'yellow' : c2.includes('🔴') ? 'red' : null;
+        const wMatch = c3.match(/`([^`]+)kg`/);
+        const sMatch = c3.match(/`([^`(]+)h\(([^`)]+)%\)`/);
+        const nrsMatch = c3.match(/`NRS\s*([^`]+)`/);
+        if (!wMatch || !sMatch || !nrsMatch) throw new Error(`${id}: 생체 지표 슬롯 형식을 확인해 주세요.`);
+        const weight = numericValue(wMatch[1], 'weight');
+        const sleepH = numericValue(sMatch[1], 'sleepH');
+        const se = numericValue(sMatch[2], 'se');
+        const nrs = numericValue(nrsMatch[1], 'nrs');
+        const session = extractSessionInfo(c4);
+        const meal = extractMealBaseAndTemplate(c5);
+        const recovery = extractRecoveryBaseAndTemplate(c6);
+        if ((meal.timeVal && !isValidTime(meal.timeVal)) || (recovery.timeVal && !isValidTime(recovery.timeVal))) {
+          throw new Error(`${id}: 시각 범위를 확인해 주세요.`);
+        }
+        if (!meal.template.includes('{TIME}') || !recovery.template.includes('{TIME}')) {
+          throw new Error(`${id}: 식사·취침 시각 슬롯을 확인해 주세요.`);
+        }
+        const recorded = Boolean(parsedLight || weight !== null || sleepH !== null || se !== null || nrs !== null || session.sessionDone);
+        const plannedLine = DEFAULT_LOG_MD.split('\n').find(row => row.startsWith(`| **${id} (`));
+        const plannedCells = plannedLine ? splitMarkdownRow(plannedLine) : [];
+        const changedMealTime = plannedCells[4] && meal.timeVal !== extractMealBaseAndTemplate(plannedCells[4]).timeVal;
+        const changedBedTime = plannedCells[5] && recovery.timeVal !== extractRecoveryBaseAndTemplate(plannedCells[5]).timeVal;
+        days.push({
+          id, week: currentWeek, dow, label: `${id} (${dow})`, role: DAY_ROLE_BY_DOW[dow] || '',
+          rawLine: line, dirtyFields: {}, readinessDirty: false, touched: false,
+          parsedLight, trafficOverride: null, weight, sleepH, se, nrs,
+          rhrDelta: null, spo2: null, hrvDrop: null, awakenings: null, alcohol: false,
+          rawSessionBase: session.rawSessionBase, sessionBase: session.sessionLabel,
+          sessionSpec: session.sessionSpec, sessionDone: session.sessionDone, altTagUsed: session.altTag,
+          rawMealTemplate: meal.template, mealBase: meal.label, mealCutoffTarget: WEEK_META[currentWeek].mealCutoff,
+          mealTime: meal.timeVal, mealRecorded: Boolean(meal.timeVal && (recorded || changedMealTime)),
+          mealProtocolOk: !c5.includes('⚠️ 영양 프로토콜 예외'),
+          rawRecoveryTemplate: recovery.template, recoveryBase: recovery.label,
+          bedCutoffTarget: WEEK_META[currentWeek].bedCutoff, bedTime: recovery.timeVal,
+          bedRecorded: Boolean(recovery.timeVal && (recorded || changedBedTime)), bedOverride: null,
+          supps: { s1: false, s2: false, s3: false, s4: false },
+          memo: c7.replace(/\\([\\|])/g, '$1')
+        });
+      }
+      const gateChecks = defaultGateChecks();
+      const metadataMatch = mdText.match(METADATA_PATTERN);
+      if (metadataMatch) {
+        const metadata = JSON.parse(metadataMatch[1]);
+        if (!metadata || typeof metadata !== 'object') throw new Error('대시보드 부가 기록 형식을 확인해 주세요.');
+        for (const day of days) {
+          const extra = metadata.days?.[day.id];
+          if (!extra || typeof extra !== 'object') continue;
+          for (const field of EXTRA_DAY_FIELDS) {
+            if (!(field in extra)) continue;
+            const value = extra[field];
+            if (field in NUMERIC_RULES) day[field] = numericValue(value, field);
+            else if (field === 'trafficOverride') {
+              if (value === null || ['green', 'yellow', 'red'].includes(value)) day[field] = value;
+            } else if (typeof value === 'boolean' || (field === 'bedOverride' && value === null)) day[field] = value;
+          }
+          for (const key of Object.keys(day.supps)) {
+            if (typeof extra.supps?.[key] === 'boolean') day.supps[key] = extra.supps[key];
+          }
+        }
+        for (const key of Object.keys(gateChecks)) {
+          if (typeof metadata.gateChecks?.[key] === 'boolean') gateChecks[key] = metadata.gateChecks[key];
+        }
+      }
+      return { days, weeklyAux, gateChecks };
+    }
+
+    // Recorded lights survive unrelated edits. Missing metrics never imply normal recovery.
+    function evaluateReadiness(day) {
+      if (day.trafficOverride) return { grade: day.trafficOverride, reason: '수동 오버라이드 적용됨' };
+      if (day.parsedLight && !day.readinessDirty) return { grade: day.parsedLight, reason: 'log.md 기입 신호등' };
+      const red = [];
+      if (day.sleepH !== null && day.sleepH < 5.5) red.push(`실수면 ${day.sleepH}h (<5.5h)`);
+      if (day.rhrDelta !== null && day.rhrDelta >= 5) red.push(`RHR +${day.rhrDelta}bpm`);
+      if (day.spo2 !== null && day.spo2 < 90) red.push(`SpO2 ${day.spo2}% (<90%)`);
+      if (day.hrvDrop !== null && day.hrvDrop >= 20) red.push(`HRV ${day.hrvDrop}% 하락`);
+      if (day.nrs !== null && day.nrs >= 4) red.push(`통증 NRS ${day.nrs}`);
+      if (day.alcohol) red.push('음주 익일');
+      if (red.length) return { grade: 'red', reason: red.join(', ') };
+      const yellow = [];
+      if (day.sleepH !== null && day.sleepH < 6.5) yellow.push(`실수면 ${day.sleepH}h`);
+      if (day.se !== null && day.se < 85) yellow.push(`SE ${day.se}%`);
+      if (day.rhrDelta !== null && day.rhrDelta >= 3) yellow.push(`RHR +${day.rhrDelta}bpm`);
+      if (day.spo2 !== null && day.spo2 < 93) yellow.push(`SpO2 ${day.spo2}%`);
+      if (day.hrvDrop !== null && day.hrvDrop >= 10) yellow.push(`HRV ${day.hrvDrop}% 하락`);
+      if (day.nrs !== null && day.nrs >= 2) yellow.push(`통증 NRS ${day.nrs}`);
+      if (day.awakenings !== null && day.awakenings >= 1) yellow.push(`새벽 각성 ${day.awakenings}회`);
+      if (yellow.length) return { grade: 'yellow', reason: yellow.join(', ') };
+      const required = { sleepH: '실수면', se: 'SE', nrs: 'NRS', rhrDelta: 'RHR 편차', spo2: 'SpO2', hrvDrop: 'HRV 편차' };
+      const missing = Object.entries(required).filter(([key]) => day[key] === null).map(([, label]) => label);
+      if (missing.length) return { grade: 'none', reason: `자동 판정 대기: ${missing.join(' · ')} 미입력` };
+      return { grade: 'green', reason: '입력한 생체 지표가 Green 기준을 충족함' };
+    }
+
+    // Autoregulation Module Adaptation (protocols.md §2.2)
+    function getAdaptedModules(day, readiness) {
+      if (readiness.grade === 'none') return {
+        modeClass: '', badge: '⚪ 판정 대기 · 계획 열람', altSessionTag: null,
+        session: `계획: ${day.sessionBase}`, meal: `계획: ${day.mealBase}`,
+        recovery: `계획: ${day.recoveryBase}`
+      };
+      if (readiness.grade === 'red') {
+        return {
+          modeClass: 'hardstop',
+          badge: '🔴 Hard Stop (고강도·충격 전면 중단)',
+          session: '🛑 정규 운동 중단 → 20~30분 야외 평지 햇빛 산책 + 흉추/고관절 모빌리티',
+          altSessionTag: '20분 평지 산책+모빌리티',
+          meal: '🛑 칼로리 적자 중단 → 유지 칼로리(2,450~2,550 kcal, 탄수 230~260g) 방어 및 12:12 창 완화',
+          recovery: '🛑 점심 Module 3 (20분 NSDR) 필수 + 밤 21:00 온열 족욕 후 Module 1 (10분 긴급 뇌파 셧다운)'
+        };
+      }
+      if (readiness.grade === 'yellow') {
+        const isCali = day.sessionBase.includes('칼리스데닉스');
+        return {
+          modeClass: 'downshifted',
+          badge: '🟡 Downshift (-33% 볼륨 감축 · 탄수/수면 보강)',
+          session: isCali
+            ? `${day.sessionBase} → 20분 미니멈 모듈 (2세트, RIR 3~4)`
+            : `${day.sessionBase} → 평지 저강도 파워워킹 30분 전환`,
+          altSessionTag: isCali ? '20분 미니멈(2세트)' : '평지 보행 30분',
+          meal: `${day.mealBase} + 식전 프리로딩 강화 & 저녁 잡곡밥(RS3) +25~30g 보강 (15분 가짜배고픔 게이트)`,
+          recovery: `점심 12:45 Module 3 (20분 파워냅) 필수 + 밤 22:00 조기 취침 (${day.recoveryBase})`
+        };
+      }
+      return {
+        modeClass: '',
+        badge: '🟢 정규 프로토콜 가동',
+        session: day.sessionBase,
+        altSessionTag: null,
+        meal: `${day.mealBase} (단백질 150~160g, 목표 ≤ ${day.mealCutoffTarget} 식사 마감)`,
+        recovery: `${day.recoveryBase} (21:30 스크린 오프, 목표 ≤ ${day.bedCutoffTarget} 소등)`
+      };
+    }
+
+    // Change only edited slots, retaining the original row's whitespace and links.
+    function serializeMarkdownRow(day) {
+      const dirty = day.dirtyFields || {};
+      if (!Object.keys(dirty).length) return day.rawLine;
+      const cells = splitMarkdownRow(day.rawLine);
+      const replaceContent = (cell, value) => cell.replace(/\S[\s\S]*\S|\S/, () => value);
+      if (day.readinessDirty || dirty.trafficOverride) {
+        const icon = { green: '🟢', yellow: '🟡', red: '🔴', none: ' ' }[evaluateReadiness(day).grade];
+        cells[1] = cells[1].replace(/`[^`]*`/, () => `\`${icon}\``);
+      }
+      if (dirty.weight) cells[2] = cells[2].replace(/`[^`]+kg`/,
+        () => `\`${day.weight === null ? '___._' : Number(day.weight).toFixed(1)}kg\``);
+      if (dirty.sleepH || dirty.se) cells[2] = cells[2].replace(/`([^`(]+)h\(([^`)]+)%\)`/, (_, hours, se) =>
+        `\`${dirty.sleepH ? (day.sleepH === null ? '__' : Number(day.sleepH).toFixed(1)) : hours}h(${dirty.se ? (day.se === null ? '__' : day.se) : se}%)\``);
+      if (dirty.nrs) cells[2] = cells[2].replace(/`NRS\s*[^`]+`/, () => `\`NRS ${day.nrs === null ? '_' : day.nrs}\``);
+      if (dirty.sessionDone) {
+        const suffix = day.sessionDone ? (day.altTagUsed ? ` → \`${day.altTagUsed}\` ✅` : ' ✅') : '';
+        cells[3] = replaceContent(cells[3], day.rawSessionBase + suffix);
+      }
+      if (dirty.mealTime) cells[4] = cells[4].replace(/`(__\s*:\s*__|\d{2}:\d{2})`/, () => `\`${day.mealTime || '__ : __'}\``);
+      if (dirty.mealProtocolOk) {
+        cells[4] = cells[4].replace(/\s*⚠️ 영양 프로토콜 예외/g, '');
+        if (!day.mealProtocolOk) cells[4] = cells[4].replace(/\s*$/, ' ⚠️ 영양 프로토콜 예외 ');
+      }
+      if (dirty.bedTime) cells[5] = cells[5].replace(/`(__\s*:\s*__|\d{2}:\d{2})`/, () => `\`${day.bedTime || '__ : __'}\``);
+      if (dirty.memo) {
+        const memo = day.memo.replace(/\r?\n/g, ' ').replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+        cells[6] = memo ? ` ${memo} ` : ' ';
+      }
+      return `|${cells.join('|')}|`;
+    }
+
+    function isDayActiveForCompliance(day) {
+      return day.mealRecorded || day.bedRecorded || day.sessionDone ||
+        [day.weight, day.sleepH, day.se, day.nrs].some(v => v !== null);
+    }
+
+    function isValidTime(value) {
+      return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+    }
+
+    function isTimeWithinCutoff(timeStr, cutoffStr) {
+      if (!isValidTime(timeStr) || !isValidTime(cutoffStr)) return false;
+      const minutes = value => {
+        const [h, m] = value.split(':').map(Number);
+        return (h < 4 ? h + 24 : h) * 60 + m;
+      };
+      return minutes(timeStr) <= minutes(cutoffStr);
+    }
+
+    function isMealCompliant(day) {
+      return day.mealRecorded && isTimeWithinCutoff(day.mealTime, day.mealCutoffTarget) && day.mealProtocolOk;
+    }
+
+    function isBedCompliant(day) {
+      return day.bedOverride === null
+        ? day.bedRecorded && Number(day.bedTime.slice(0, 2)) >= 12 && isTimeWithinCutoff(day.bedTime, day.bedCutoffTarget)
+        : day.bedOverride;
+    }
+
+    // Issue #26 Weekly Summary & Compliance Aggregator
+    function computeWeekAggregation(weekNum) {
+      const days = state.days.filter(d => d.week === weekNum);
+
+      const weights = days.map(d => d.weight).filter(v => v !== null && v !== '' && !Number.isNaN(Number(v))).map(Number);
+      const sleeps = days.map(d => d.sleepH).filter(v => v !== null && v !== '' && !Number.isNaN(Number(v))).map(Number);
+      const ses = days.map(d => d.se).filter(v => v !== null && v !== '' && !Number.isNaN(Number(v))).map(Number);
+      const nrss = days.map(d => d.nrs).filter(v => v !== null && v !== '' && !Number.isNaN(Number(v))).map(Number);
+
+      const maWeightNum = weights.length ? (weights.reduce((a, b) => a + b, 0) / weights.length) : null;
+      const maWeight = maWeightNum !== null ? maWeightNum.toFixed(1) : '___._';
+
+      // Compute diff vs previous week's 7d MA (or 98.2 baseline)
+      let diffStr = '___ kg';
+      if (weekNum > 1 && maWeightNum !== null) {
+        const prevWeights = state.days
+          .filter(d => d.week === weekNum - 1)
+          .map(d => d.weight)
+          .filter(v => v !== null && v !== '' && !Number.isNaN(Number(v)))
+          .map(Number);
+        const prevMa = prevWeights.length
+          ? prevWeights.reduce((a, b) => a + b, 0) / prevWeights.length
+          : null;
+        if (prevMa !== null) {
+          const diff = maWeightNum - prevMa;
+          diffStr = `${diff > 0 ? '+' : ''}${diff.toFixed(1)} kg`;
+        }
+      }
+
+      let avgSleepStr = '__h __m';
+      if (sleeps.length) {
+        const avgH = sleeps.reduce((a, b) => a + b, 0) / sleeps.length;
+        const totalMinutes = Math.round(avgH * 60);
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        avgSleepStr = `${h}h ${String(m).padStart(2, '0')}m`;
+      }
+
+      const avgSe = ses.length ? Math.round(ses.reduce((a, b) => a + b, 0) / ses.length) : '__';
+      const maxNrs = nrss.length ? Math.max(...nrss) : '__';
+
+      const wMeta = WEEK_META[weekNum];
+      const bedCount = days.filter(isBedCompliant).length;
+      const mealCount = days.filter(isMealCompliant).length;
+      const sessionCount = days.filter(d => d.sessionDone).length;
+
+      const aux = state.weeklyAux[weekNum] || { waist: '', rhr: '', spo2: '' };
+      const waistStr = aux.waist !== '' && aux.waist !== null ? Number(aux.waist).toFixed(1) : '___._';
+      const rhrStr = aux.rhr !== '' && aux.rhr !== null ? aux.rhr : '__';
+      const spo2Str = aux.spo2 !== '' && aux.spo2 !== null ? aux.spo2 : '__';
+
+      const summaryLine = weekNum === 1
+        ? `- **주간 요약**: 7d MA 체중 \`${maWeight} kg\` (시작 \`98.2 kg\`) | 허리둘레 \`${waistStr} cm\` | 평균 실수면 \`${avgSleepStr}\` (SE \`${avgSe}%\`, RHR \`${rhrStr} bpm\`, 최저 SpO2 \`${spo2Str}%\`)`
+        : `- **주간 요약**: 7d MA 체중 \`${maWeight} kg\` (\`${diffStr}\`) | 허리둘레 \`${waistStr} cm\` | 평균 실수면 \`${avgSleepStr}\` (SE \`${avgSe}%\`, RHR \`${rhrStr} bpm\`, 최저 SpO2 \`${spo2Str}%\`)`;
+
+      let complianceLine = '';
+      if (weekNum === 1) {
+        complianceLine = `- **주간 준수율 (목표 \`≥ 6/7일\`)**: 기상·취침 앵커 \`${bedCount} / 7\` | \`19:00\` 식사 마감 & 독소 차단 \`${mealCount} / 7\` | 정규 운동 완수 \`${sessionCount} / 6회\` | 관절·첫발 최고 통증 \`NRS ${maxNrs}\``;
+      } else if (weekNum === 2) {
+        complianceLine = `- **주간 준수율 (14일 중 \`≥ 12일\` 달성 시 W3 식단·수면 \`Lv 2\` 승급)**: 기상·취침 \`${bedCount} / 7\` | \`19:00\` 마감 & 모듈 \`${mealCount} / 7\` | 정규 운동 \`${sessionCount} / 6회\` | 최고 통증 \`NRS ${maxNrs}\``;
+      } else if (weekNum === 3) {
+        complianceLine = `- **주간 준수율**: 4대 컷오프(\`12:00\` 커피·\`20:30\` 수분) \`${bedCount} / 7\` | \`13:11\`(\`18:30\` 마감) & 식전 차전자피 \`${mealCount} / 7\` | 운동 상한 볼륨 \`${sessionCount} / 6회\` | 최고 통증 \`NRS ${maxNrs}\``;
+      } else {
+        complianceLine = `- **주간 준수율**: 수면 \`+30분\`(\`22:00\` 취침) \`${bedCount} / 7\` | 클린 열량(\`~2,050 kcal\`)·콜라겐 유지 \`${mealCount} / 7\` | 디로딩 운동 \`${sessionCount} / 6회\` | 최고 통증 \`NRS ${maxNrs}\``;
+      }
+
+      const bmiStr = maWeightNum !== null ? (maWeightNum / (1.73 * 1.73)).toFixed(1) : '-';
+      const diffParen = weekNum === 1
+        ? (maWeightNum !== null ? `${(maWeightNum - 98.2 >= 0 ? '+' : '')}${(maWeightNum - 98.2).toFixed(1)}` : '-')
+        : diffStr.replace(' kg', '');
+      const measurementsRow = `| ${wMeta.endDate} | ${maWeight} (${diffParen}) | ${waistStr} | - | - | - | ${bmiStr} | ${rhrStr} / - | ${avgSleepStr} / ${avgSe}% / ${spo2Str}% | - | Phase 1 Week ${weekNum} 자동 집계 (운동 ${sessionCount}/6, 식단 ${mealCount}/7, 수면 ${bedCount}/7, 최고 NRS ${maxNrs}) |`;
+
+      const hasUserEdits = days.some(isDayActiveForCompliance);
+
+      return {
+        weekNum,
+        maWeight,
+        maWeightNum,
+        diffStr,
+        avgSleepStr,
+        avgSe,
+        maxNrs,
+        bedCount,
+        mealCount,
+        sessionCount,
+        waistStr,
+        rhrStr,
+        spo2Str,
+        summaryLine,
+        complianceLine,
+        measurementsRow,
+        hasUserEdits
+      };
+    }
+
+    function patchSummaryLine(line, agg) {
+      let result = line
+        .replace(/(7d MA 체중\s*)`[^`]+`/, (_, p) => `${p}\`${agg.maWeight} kg\``)
+        .replace(/(허리둘레\s*)`[^`]+`/, (_, p) => `${p}\`${agg.waistStr} cm\``)
+        .replace(/(평균 실수면\s*)`[^`]+`/, (_, p) => `${p}\`${agg.avgSleepStr}\``)
+        .replace(/(SE\s*)`[^`]+`/, (_, p) => `${p}\`${agg.avgSe}%\``)
+        .replace(/(RHR\s*)`[^`]+`/, (_, p) => `${p}\`${agg.rhrStr} bpm\``)
+        .replace(/(최저 SpO2\s*)`[^`]+`/, (_, p) => `${p}\`${agg.spo2Str}%\``);
+      if (agg.weekNum > 1) result = result.replace(/(7d MA 체중\s*`[^`]+`\s*)\(`[^`]+`\)/,
+        (_, p) => `${p}(\`${agg.diffStr}\`)`);
+      return result;
+    }
+
+    function patchComplianceLine(line, agg) {
+      const counts = [agg.bedCount, agg.mealCount, agg.sessionCount];
+      let index = 0;
+      const split = line.indexOf('**:') + 3;
+      return line.slice(0, split) + line.slice(split).replace(/`[\d_]+(\s*\/\s*)(7|6회)`/g,
+        (slot, slash, denominator) => index < counts.length ? `\`${counts[index++]}${slash}${denominator}\`` : slot)
+        .replace(/`NRS\s*[\d_]+`/, () => `\`NRS ${agg.maxNrs}\``);
+    }
+
+    function weekNeedsAggregation(week) {
+      const fields = ['weight', 'sleepH', 'se', 'nrs', 'sessionDone', 'mealTime', 'mealProtocolOk', 'bedTime', 'bedOverride'];
+      return Boolean(state.dirtyWeeks?.[week]) || state.days.some(day =>
+        day.week === week && fields.some(f => day.dirtyFields?.[f]));
+    }
+
+    function serializeFullLogMarkdown(baseMdText, forceAggregateAllWeeks = false) {
+      const dayMap = new Map(state.days.map(d => [d.id, d]));
+      let week = 1;
+      // Keep every original line separator, including a missing final newline.
+      let result = baseMdText.split(/(\r?\n)/).map(line => {
+        const header = line.match(/^## 📊 Week (\d)/);
+        if (header) week = Number(header[1]);
+        const ownWeekChanged = forceAggregateAllWeeks || weekNeedsAggregation(week);
+        const previousWeightChanged = state.days.some(d => d.week === week - 1 && d.dirtyFields?.weight);
+        if ((ownWeekChanged || previousWeightChanged) && line.startsWith('- **주간')) {
+          const agg = computeWeekAggregation(week);
+          if (line.startsWith('- **주간 요약**:') && (ownWeekChanged || agg.maWeightNum !== null)) return patchSummaryLine(line, agg);
+          if (line.startsWith('- **주간 준수율') && ownWeekChanged) return patchComplianceLine(line, agg);
+        }
+        const row = line.match(/^\|\s*\*\*(\d{2}-\d{2})\s*\([^)]+\)\*\*\s*\|/);
+        return row && dayMap.has(row[1]) ? serializeMarkdownRow(dayMap.get(row[1])) : line;
+      }).join('');
+      if (state.metadataDirty) {
+        const eol = baseMdText.includes('\r\n') ? '\r\n' : '\n';
+        const days = Object.fromEntries(state.days.map(day => [day.id, {
+          ...Object.fromEntries(EXTRA_DAY_FIELDS.map(key => [key, day[key]])), supps: day.supps
+        }]));
+        // The seven visible columns stay intact; portable UI-only records live in a comment.
+        const json = JSON.stringify({ days, gateChecks: state.gateChecks }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+        const comment = `<!-- phase1-dashboard:v1${eol}${json}${eol}-->`;
+        result = METADATA_PATTERN.test(result) ? result.replace(METADATA_PATTERN, () => comment)
+          : result + (result.endsWith('\n') ? eol : eol + eol) + comment + eol;
+      }
+      return result;
+    }
+
+    // =========================================================================
+    // 4. APPLICATION STATE & PERSISTENCE (File System Access API + localStorage)
+    // =========================================================================
+    const STORAGE_KEY = 'fitness_phase1_dashboard_v1';
+    let fileHandle = null, lastFileText = null, fileError = '', storageAvailable = true;
+    let fileWriteQueue = Promise.resolve(), connectionGeneration = 0, connectionAttempt = 0, pendingWrites = 0;
+    let lastSavedAt = '';
+    const initialParsed = validateParsedLog(parseLogMarkdown(DEFAULT_LOG_MD));
+    const state = {
+      baseMarkdown: DEFAULT_LOG_MD, selectedDayId: '10-18', selectedWeekTab: 1,
+      days: initialParsed.days, weeklyAux: initialParsed.weeklyAux,
+      gateChecks: initialParsed.gateChecks, dirtyWeeks: {}, metadataDirty: false
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => el.classList.remove('show'), 3800);
+    }
+
+    function updateSyncStatus() {
+      const backup = storageAvailable ? '브라우저 자동 백업' : '브라우저 백업 불가 · 복사/다운로드로 보관';
+      const message = fileError ? `${fileError} · ${backup}`
+        : fileHandle ? `${lastSavedAt ? `log.md 저장됨 ${lastSavedAt}` : 'log.md 연결됨'} · ${backup}`
+        : `${backup} · log.md 미연결`;
+      document.getElementById('file-sync-text').textContent = message;
+      document.getElementById('file-sync-dot').classList.toggle('connected', Boolean(fileHandle && !fileError));
+      document.getElementById('btn-save-file').style.display = fileHandle ? 'inline-flex' : 'none';
+    }
+
+    function saveStateToLocalStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2,
+          markdown: serializeFullLogMarkdown(state.baseMarkdown),
+          selectedDayId: state.selectedDayId, selectedWeekTab: state.selectedWeekTab,
+          updatedAt: new Date().toISOString() }));
+        storageAvailable = true;
+      } catch (_) {
+        storageAvailable = false;
+      }
+      updateSyncStatus();
+      return storageAvailable;
+    }
+
+    function installParsedLog(mdText, parsed) {
+      state.baseMarkdown = mdText;
+      state.days = parsed.days;
+      state.weeklyAux = parsed.weeklyAux;
+      state.gateChecks = parsed.gateChecks;
+      state.dirtyWeeks = {};
+      state.metadataDirty = false;
+      if (!state.days.some(d => d.id === state.selectedDayId)) state.selectedDayId = state.days[0].id;
+      if (state.selectedWeekTab !== 'all') state.selectedWeekTab = getActiveDay().week;
+    }
+
+    function loadStateFromLocalStorage() {
+      let raw;
+      try { raw = localStorage.getItem(STORAGE_KEY); }
+      catch (_) { storageAvailable = false; updateSyncStatus(); return false; }
+      try {
+        if (!raw) return false;
+        const saved = JSON.parse(raw);
+        const markdown = saved.version === 2 ? saved.markdown : saved.baseMarkdown;
+        if (typeof markdown !== 'string') return false;
+        const parsed = validateParsedLog(parseLogMarkdown(markdown));
+        // Migrate the earlier browser backup without trusting its rendered labels/templates.
+        if (saved.version !== 2) {
+          if (!Array.isArray(saved.days) || saved.days.length !== 28) return false;
+          for (const day of parsed.days) {
+            const old = saved.days.find(d => d.id === day.id);
+            if (!old) throw new Error('이전 백업에 날짜가 빠져 있습니다.');
+            for (const field of ['weight', 'sleepH', 'se', 'nrs', 'rhrDelta', 'spo2']) {
+              if (field in old) {
+                day[field] = numericValue(old[field], field);
+                day.dirtyFields[field] = true;
+              }
+            }
+            for (const field of ['mealTime', 'bedTime']) {
+              if (old[field] && !isValidTime(old[field])) throw new Error('이전 백업의 시각 형식 오류');
+              day[field] = old[field] || '';
+              day.dirtyFields[field] = true;
+            }
+            day.sessionDone = old.sessionDone === true;
+            day.altTagUsed = typeof old.altTagUsed === 'string' ? old.altTagUsed.slice(0, 120) : null;
+            day.memo = typeof old.memo === 'string' ? old.memo.replace(/\r?\n/g, ' ') : day.memo;
+            day.dirtyFields.memo = day.dirtyFields.sessionDone = true;
+            day.readinessDirty = Boolean(old.touched);
+            day.mealRecorded = Boolean(day.mealTime && (old.touched || isDayActiveForCompliance(day)));
+            day.bedRecorded = Boolean(day.bedTime && (old.touched || isDayActiveForCompliance(day)));
+            day.mealProtocolOk = old.mealProtocolOk !== false;
+            if (['green', 'yellow', 'red'].includes(old.trafficOverride)) day.trafficOverride = old.trafficOverride;
+            for (const key of Object.keys(day.supps)) if (typeof old.supps?.[key] === 'boolean') day.supps[key] = old.supps[key];
+          }
+          for (const key of Object.keys(parsed.gateChecks)) {
+            if (typeof saved.gateChecks?.[key] === 'boolean') parsed.gateChecks[key] = saved.gateChecks[key];
+          }
+        }
+        installParsedLog(markdown, parsed);
+        if (saved.version !== 2) state.metadataDirty = true;
+        if (state.days.some(d => d.id === saved.selectedDayId)) state.selectedDayId = saved.selectedDayId;
+        if ([1, 2, 3, 4, 'all'].includes(saved.selectedWeekTab)) state.selectedWeekTab = saved.selectedWeekTab;
+        return true;
+      } catch (_) {
+        showToast('브라우저 백업을 복원하지 못했습니다. log.md를 연결하거나 다운로드한 기록을 불러와 주세요.');
+        return false;
+      }
+    }
+
+    function disconnectLogFile() {
+      connectionGeneration++;
+      fileHandle = null;
+      lastFileText = null;
+      fileError = '';
+      lastSavedAt = '';
+      updateSyncStatus();
+    }
+
+    function applyImportedMarkdown(mdText, toastMessage) {
+      try {
+        const parsed = validateParsedLog(parseLogMarkdown(mdText));
+        const current = serializeFullLogMarkdown(state.baseMarkdown);
+        if (current !== DEFAULT_LOG_MD && current !== mdText &&
+            !window.confirm('현재 브라우저 기록을 선택한 log.md의 기록으로 바꿀까요? 필요한 기록은 먼저 복사/다운로드해 주세요.')) return false;
+        disconnectLogFile();
+        installParsedLog(mdText, parsed);
+        saveStateToLocalStorage();
+        renderAll();
+        showToast(toastMessage || 'log.md의 28일 기록을 불러왔습니다.');
+        return true;
+      } catch (err) {
+        showToast(`파일을 불러오지 않았습니다: ${err.message}`);
+        return false;
+      }
+    }
+
+    async function connectLogFile() {
+      const attempt = ++connectionAttempt;
+      if (typeof window.showOpenFilePicker !== 'function') {
+        document.getElementById('fallback-file-input').click();
+        return;
+      }
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: 'Phase 1 log.md', accept: { 'text/markdown': ['.md'] } }], multiple: false
+        });
+        await fileWriteQueue;
+        const file = await handle.getFile();
+        const text = await file.text();
+        if (attempt !== connectionAttempt) return;
+        if (!applyImportedMarkdown(text, `${file.name} 연결 완료 · 이후 입력은 파일과 브라우저에 저장됩니다.`)) return;
+        fileHandle = handle;
+        lastFileText = text;
+        updateSyncStatus();
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        showToast('파일 연결 실패 · 일반 파일 불러오기를 사용합니다. 저장은 복사/다운로드로 할 수 있습니다.');
+        document.getElementById('fallback-file-input').click();
+      }
+    }
+
+    async function handleFallbackFileSelect(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      ++connectionAttempt;
+      try {
+        const text = await file.text();
+        await fileWriteQueue;
+        applyImportedMarkdown(text, `${file.name} 불러옴 · 변경 후 복사/다운로드로 저장해 주세요.`);
+      } catch (_) {
+        showToast('파일을 읽지 못했습니다.');
+      } finally {
+        event.target.value = '';
+      }
+    }
+
+    // File writes are ordered; compare with the last read/write immediately before
+    // starting each write to detect intervening edits from other applications.
+    function queueFileSave() {
+      if (!fileHandle) return Promise.resolve(false);
+      const handle = fileHandle, generation = connectionGeneration;
+      const markdown = serializeFullLogMarkdown(state.baseMarkdown);
+      pendingWrites++;
+      fileWriteQueue = fileWriteQueue.then(async () => {
+        if (generation !== connectionGeneration || handle !== fileHandle || fileError) return false;
+        try {
+          const current = await (await handle.getFile()).text();
+          if (generation !== connectionGeneration || handle !== fileHandle) return false;
+          if (current !== lastFileText) {
+            fileError = '외부 파일 변경 감지 · 다시 연결 필요';
+            showToast('log.md가 외부에서 변경되어 자동저장을 멈췄습니다. 브라우저 기록을 다운로드한 뒤 파일을 다시 연결해 주세요.');
+            return false;
+          }
+          if (current !== markdown) {
+            const writable = await handle.createWritable();
+            try {
+              await writable.write(markdown);
+              await writable.close();
+            } catch (err) {
+              await writable.abort?.().catch(() => {});
+              throw err;
+            }
+            lastFileText = markdown;
+          }
+          if (generation === connectionGeneration) lastSavedAt = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+          return true;
+        } catch (_) {
+          if (generation === connectionGeneration) {
+            fileError = '파일 저장 실패 · 다시 연결 필요';
+            showToast('파일 저장에 실패했습니다. 브라우저 기록을 다운로드하거나 파일을 다시 연결해 주세요.');
+          }
+          return false;
+        } finally {
+          updateSyncStatus();
+        }
+      }).finally(() => { pendingWrites--; updateSyncStatus(); });
+      return fileWriteQueue;
+    }
+
+    async function saveToLogFile() {
+      saveStateToLocalStorage();
+      if (await queueFileSave()) showToast('log.md 파일에 저장했습니다.');
+      else downloadLogMarkdown();
+    }
+
+    function autoPersist() {
+      saveStateToLocalStorage();
+      return queueFileSave();
+    }
+
+    async function copyMarkdown(text, message) {
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
+        await navigator.clipboard.writeText(text);
+        showToast(message);
+        return true;
+      } catch (_) {
+        document.getElementById('drawer-title').textContent = '마크다운 직접 복사';
+        document.getElementById('drawer-body').innerHTML = `<p>자동 복사를 사용할 수 없습니다. 아래 내용을 선택해 복사해 주세요.</p><textarea id="copy-fallback" readonly aria-label="복사할 마크다운" style="width:100%;height:60vh;">${escapeHtml(text)}</textarea>`;
+        const dialog = document.getElementById('catalog-drawer');
+        if (!dialog.open) dialog.showModal();
+        document.getElementById('copy-fallback').select();
+        showToast('직접 복사할 마크다운을 열었습니다.');
+        return false;
+      }
+    }
+
+    function copyFullLogMarkdown() {
+      return copyMarkdown(serializeFullLogMarkdown(state.baseMarkdown), '전체 log.md를 복사했습니다.');
+    }
+
+    function copySingleRowMarkdown() {
+      return copyMarkdown(serializeMarkdownRow(getActiveDay()), `${getActiveDay().label} 행을 복사했습니다.`);
+    }
+
+    function downloadLogMarkdown() {
+      const blob = new Blob([serializeFullLogMarkdown(state.baseMarkdown)], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'log.md';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('log.md 다운로드를 시작했습니다.');
+    }
+
+    function resetToCanonicalLog() {
+      if (!window.confirm('브라우저 기록을 초기 log.md로 복원할까요? 연결은 해제되며 실제 파일에는 초기값을 쓰지 않습니다. 필요한 기록은 먼저 다운로드해 주세요.')) return;
+      ++connectionAttempt;
+      disconnectLogFile();
+      installParsedLog(DEFAULT_LOG_MD, parseLogMarkdown(DEFAULT_LOG_MD));
+      state.selectedDayId = '10-18';
+      state.selectedWeekTab = 1;
+      saveStateToLocalStorage();
+      renderAll();
+      showToast('파일 연결을 해제하고 브라우저 기록을 초기화했습니다.');
+    }
+
+    window.addEventListener?.('beforeunload', event => {
+      if (pendingWrites > 0) { event.preventDefault(); event.returnValue = ''; }
+    });
+
+    // =========================================================================
+    // 5. UI RENDERERS (Variant A · 2-Column Split Workbench)
+    // =========================================================================
+    function getActiveDay() {
+      return state.days.find(d => d.id === state.selectedDayId) || state.days[0];
+    }
+
+    function renderTrafficBadge(readiness) {
+      const map = {
+        green: { cls: 'traffic-green', text: '🟢 Green (정상 회복 · 정규 가동)' },
+        yellow: { cls: 'traffic-yellow', text: '🟡 Yellow (경계 피로 · -33% 다운시프트)' },
+        red: { cls: 'traffic-red', text: '🔴 Red (위험 과부하 · Hard Stop)' },
+        none: { cls: 'traffic-none', text: '⚪ 미입력 (생체 지표 대기)' }
+      };
+      const item = map[readiness.grade] || map.none;
+      return `<span class="traffic-badge ${item.cls}">${item.text}</span>`;
+    }
+
+    // Left Card 1: Morning Telemetry & Readiness Traffic Light
+    function renderMorningCheckinCard(day, readiness) {
+      return `
+        <section class="card" aria-label="아침 생체 지표 및 Readiness Traffic Light">
+          <div class="card-header">
+            <h2 class="card-title">🌅 1. 아침 생체 지표 & Readiness Traffic Light</h2>
+            ${renderTrafficBadge(readiness)}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+            <span><strong>판정 사유:</strong> ${escapeHtml(readiness.reason)}</span>
+            <a href="../../profile/protocols.md#22-아침-스마트워치통증-기반-3단계-신호등-readiness-traffic-light" target="_blank">기준표 §2.2 ↗</a>
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label for="inp-weight">공복 체중 (kg)</label>
+              <input id="inp-weight" type="number" step="0.1" placeholder="98.2" value="${day.weight ?? ''}" onchange="updateDayField('weight', this.value)" style="width:92px;" />
+            </div>
+            <div class="form-field">
+              <label for="inp-sleep">실수면 (h)</label>
+              <input id="inp-sleep" type="number" step="0.1" placeholder="7.5" value="${day.sleepH ?? ''}" onchange="updateDayField('sleepH', this.value)" style="width:82px;" />
+            </div>
+            <div class="form-field">
+              <label for="inp-se">수면효율 SE (%)</label>
+              <input id="inp-se" type="number" step="1" placeholder="88" value="${day.se ?? ''}" onchange="updateDayField('se', this.value)" style="width:86px;" />
+            </div>
+            <div class="form-field">
+              <label for="inp-nrs">첫발·관절 통증 (NRS)</label>
+              <input id="inp-nrs" type="number" min="0" max="10" step="1" placeholder="0" value="${day.nrs ?? ''}" onchange="updateDayField('nrs', this.value)" style="width:88px;" />
+            </div>
+            <div class="form-field">
+              <label for="inp-rhr">RHR 편차 (bpm)</label>
+              <input id="inp-rhr" type="number" step="1" placeholder="0" value="${day.rhrDelta ?? ''}" onchange="updateDayField('rhrDelta', this.value)" style="width:84px;" />
+            </div>
+            <div class="form-field">
+              <label for="inp-spo2">최저 SpO2 (%)</label>
+              <input id="inp-spo2" type="number" min="0" max="100" step="1" placeholder="미입력" value="${day.spo2 ?? ''}" onchange="updateDayField('spo2', this.value)" style="width:86px;" />
+            </div>
+            <div class="form-field">
+              <label for="inp-hrv">HRV 하락률 (%)</label>
+              <input id="inp-hrv" type="number" min="-100" max="100" step="1" placeholder="기준선 대비" value="${day.hrvDrop ?? ''}" onchange="updateDayField('hrvDrop', this.value)" style="width:98px;" />
+            </div>
+            <div class="form-field">
+              <label for="inp-awakenings">새벽 각성 (회)</label>
+              <input id="inp-awakenings" type="number" min="0" max="30" step="1" placeholder="미입력" value="${day.awakenings ?? ''}" onchange="updateDayField('awakenings', this.value)" style="width:86px;" />
+            </div>
+            <label style="font-size:12px;"><input id="inp-alcohol" type="checkbox" ${day.alcohol ? 'checked' : ''} onchange="updateDayField('alcohol', this.checked)" /> 음주 익일</label>
+            <div class="form-field">
+              <label for="sel-override">신호등 수동 오버라이드</label>
+              <select id="sel-override" onchange="updateDayField('trafficOverride', this.value || null)">
+                <option value="" ${!day.trafficOverride ? 'selected' : ''}>자동 판정</option>
+                <option value="green" ${day.trafficOverride === 'green' ? 'selected' : ''}>🟢 Green 강제</option>
+                <option value="yellow" ${day.trafficOverride === 'yellow' ? 'selected' : ''}>🟡 Yellow 강제</option>
+                <option value="red" ${day.trafficOverride === 'red' ? 'selected' : ''}>🔴 Red 강제</option>
+              </select>
+            </div>
+          </div>
+
+          <p style="font-size:11.5px;color:var(--text-muted);margin:0;">자동 판정에 필요한 값이 부족하면 대기 상태로 표시합니다. 이상 신호는 입력 즉시 반영합니다.</p>
+        </section>
+      `;
+    }
+
+    // Left Card 2: Daily Module Briefing & Check-in
+    function renderBriefingAndExecutionCard(day, readiness, adapted) {
+      const wMeta = WEEK_META[day.week];
+      return `
+        <section class="card" aria-label="오늘의 모듈 브리핑 및 실행 체크">
+          <div class="card-header">
+            <h2 class="card-title">🎯 2. 오늘의 모듈 브리핑 & 실행 기록 (${day.label})</h2>
+            <span class="tag">${adapted.badge}</span>
+          </div>
+
+          <div style="background:var(--surface-2);border-left:3px solid var(--accent);padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;">
+            <strong style="color:var(--accent);">W${day.week} 포커스 (${wMeta.subtitle}):</strong>
+            <span style="color:var(--text-muted);">${day.role}</span>
+          </div>
+
+          <!-- Session Module -->
+          <div class="module-box ${adapted.modeClass}">
+            <div class="module-header">
+              <span class="module-name">🤸/🏃 운동 (Session Module)</span>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button onclick="openCatalog('${day.sessionSpec}')">📖 내장 큐·세트 열기</button>
+                <label style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;font-weight:700;color:var(--green);">
+                  <input type="checkbox" ${day.sessionDone ? 'checked' : ''} onchange="updateDayField('sessionDone', this.checked)" />
+                  수행 완료 (✅)
+                </label>
+              </div>
+            </div>
+            <div style="font-size:13px;color:var(--text);">${escapeHtml(adapted.session)}</div>
+          </div>
+
+          <!-- Meal Module -->
+          <div class="module-box ${adapted.modeClass}">
+            <div class="module-header">
+              <span class="module-name">🥗 영양 (Meal Module & 마감 시각)</span>
+              <div style="display:flex;gap:6px;">
+                <button onclick="openCatalog('meal-metabolic')">📖 식사 순서·2-Track</button>
+                <button onclick="openCatalog('meal-defense')">🏢 외식·회식 방어</button>
+              </div>
+            </div>
+            <div style="font-size:13px;margin-bottom:8px;">${escapeHtml(adapted.meal)}</div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label for="inp-meal-time" style="font-size:12px;color:var(--text-muted);">마지막 칼로리 마감 (목표 ≤ ${day.mealCutoffTarget}):</label>
+              <input id="inp-meal-time" type="time" value="${day.mealTime}" onchange="updateDayField('mealTime', this.value)" />
+              <button onclick="updateDayField('mealTime', '18:30')">18:30</button>
+              <button onclick="updateDayField('mealTime', '19:00')">19:00</button>
+              <button onclick="updateDayField('mealTime', '')">초기화</button>
+            </div>
+            <label style="display:block;font-size:12px;margin-top:8px;"><input id="inp-meal-protocol" type="checkbox" ${day.mealProtocolOk ? 'checked' : ''} onchange="updateDayField('mealProtocolOk', this.checked)" /> ${day.week < 3 ? '독소 차단 준수' : '단백질·프리로딩 준수'} (예외 발생 시 해제)</label>
+          </div>
+
+          <!-- Recovery Module -->
+          <div class="module-box ${adapted.modeClass}">
+            <div class="module-header">
+              <span class="module-name">🌙 수면 (Recovery Module & 취침 시각)</span>
+              <button onclick="openCatalog('recovery-mod2')">📖 10-10-10 윈드다운</button>
+            </div>
+            <div style="font-size:13px;margin-bottom:8px;">${escapeHtml(adapted.recovery)}</div>
+            <div class="form-row" style="margin-bottom:0;">
+              <label for="inp-bed-time" style="font-size:12px;color:var(--text-muted);">소등 취침 시각 (목표 ≤ ${day.bedCutoffTarget}):</label>
+              <input id="inp-bed-time" type="time" value="${day.bedTime}" onchange="updateDayField('bedTime', this.value)" />
+              <button onclick="updateDayField('bedTime', '22:00')">22:00</button>
+              <button onclick="updateDayField('bedTime', '22:30')">22:30</button>
+              <button onclick="updateDayField('bedTime', '')">초기화</button>
+            </div>
+            <label for="inp-bed-override" style="display:block;font-size:12px;margin-top:8px;">수면 준수 판정:
+              <select id="inp-bed-override" onchange="updateDayField('bedOverride', this.value === '' ? null : this.value === 'true')">
+                <option value="" ${day.bedOverride === null ? 'selected' : ''}>기록한 취침 시각으로 자동 집계</option>
+                <option value="true" ${day.bedOverride === true ? 'selected' : ''}>직접 확인: 준수</option>
+                <option value="false" ${day.bedOverride === false ? 'selected' : ''}>직접 확인: 미준수</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- 4-Slot Supplements -->
+          <div style="margin-top:12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">
+              💊 4슬롯 서플리먼트 일일 체크 (<a href="../../profile/protocols.md#5-상시-복용-영양제--약물-4슬롯-타임라인-supplements--medications" target="_blank">protocols.md §5</a>)
+            </div>
+            <div class="supp-grid">
+              <label class="supp-item ${day.supps.s1 ? 'checked' : ''}">
+                <input type="checkbox" ${day.supps.s1 ? 'checked' : ''} onchange="updateSupp('s1', this.checked)" />
+                <span><strong>Slot 1 (식전 15~20분)</strong><br/>차전자피 5~6g + 사과식초 15mL (W3 Lv 2~)</span>
+              </label>
+              <label class="supp-item ${day.supps.s2 ? 'checked' : ''}">
+                <input type="checkbox" ${day.supps.s2 ? 'checked' : ''} onchange="updateSupp('s2', this.checked)" />
+                <span><strong>Slot 2 (첫 끼·저녁 식후)</strong><br/>D3 2,000IU+K2 / rTG 오메가-3</span>
+              </label>
+              <label class="supp-item ${day.supps.s3 ? 'checked' : ''}">
+                <input type="checkbox" ${day.supps.s3 ? 'checked' : ''} onchange="updateSupp('s3', this.checked)" />
+                <span><strong>Slot 3 (15:30 / 운동 45분 전)</strong><br/>WPI 1스쿱 / 콜라겐 15g + 비타민C</span>
+              </label>
+              <label class="supp-item ${day.supps.s4 ? 'checked' : ''}">
+                <input type="checkbox" ${day.supps.s4 ? 'checked' : ''} onchange="updateSupp('s4', this.checked)" />
+                <span><strong>Slot 4 (21:15 취침 전)</strong><br/>마그네슘 비스글리시네이트 300~400mg</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Memo & Live Markdown Row Preview -->
+          <div style="margin-top:12px;">
+            <label for="inp-memo" style="font-size:11px;color:var(--text-muted);font-weight:600;">한 줄 메모 (log.md 7번째 열 · 파이프 | 자동 이스케이프)</label>
+            <input id="inp-memo" type="text" style="width:100%;margin-top:4px;" value="${escapeHtml(day.memo)}" placeholder="특이사항, 운동 마지막 세트 RIR, 외식 방어 메모..." oninput="updateDayField('memo', this.value)" />
+          </div>
+
+          <div style="margin-top:12px;">
+            <div class="md-preview-label">
+              <span>실시간 <code>log.md</code> In-place 직렬화 프리뷰 (마크다운 딥링크 보존)</span>
+              <button onclick="copySingleRowMarkdown()" style="padding:2px 8px;font-size:11px;">📋 이 행만 복사</button>
+            </div>
+            <div class="md-preview-box" id="live-row-preview">${escapeHtml(serializeMarkdownRow(day))}</div>
+          </div>
+        </section>
+      `;
+    }
+
+    // Right Card 3: Weekly Tabs (W1~W4) + Log Table + Weekly Summary & Aux Inputs
+    function renderWeeklyTableAndSummaryCard() {
+      const activeWeek = state.selectedWeekTab === 'all' ? getActiveDay().week : Number(state.selectedWeekTab);
+      const agg = computeWeekAggregation(activeWeek);
+      const wMeta = WEEK_META[activeWeek];
+      const aux = state.weeklyAux[activeWeek] || { waist: '', rhr: '', spo2: '' };
+
+      const visibleDays = state.selectedWeekTab === 'all'
+        ? state.days
+        : state.days.filter(d => d.week === activeWeek);
+
+      const rowsHtml = visibleDays.map(d => {
+        const r = evaluateReadiness(d);
+        const adapted = getAdaptedModules(d, r);
+        const lightIcon = r.grade === 'green' ? '🟢' : r.grade === 'yellow' ? '🟡' : r.grade === 'red' ? '🔴' : '⚪';
+        const isSel = d.id === state.selectedDayId;
+        const w = d.weight !== null && d.weight !== '' ? `${Number(d.weight).toFixed(1)}kg` : '___._kg';
+        const s = d.sleepH !== null && d.sleepH !== '' ? `${Number(d.sleepH).toFixed(1)}h(${d.se ?? '__'}%)` : '__h(__%)';
+        const alt = d.altTagUsed;
+        const sessionText = d.sessionDone
+          ? (alt ? `${d.sessionBase} → ${alt} ✅` : `${d.sessionBase} ✅`)
+          : d.sessionBase;
+
+        return `
+          <tr class="${isSel ? 'selected-row' : ''}" onclick="selectDay('${d.id}')">
+            <td><button onclick="selectDay('${d.id}')">W${d.week} · ${d.label}</button></td>
+            <td style="text-align:center;">${lightIcon}</td>
+            <td style="font-family:var(--mono);font-size:12px;">${w} / ${s} / NRS ${d.nrs ?? '_'}</td>
+            <td>${escapeHtml(sessionText)}</td>
+            <td>${escapeHtml(d.mealBase)} (<code>${d.mealTime || '__:__'}</code>)</td>
+            <td>${escapeHtml(d.recoveryBase)} (<code>${d.bedTime || '__:__'}</code>)</td>
+            <td style="color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(d.memo || '-')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <section class="card" aria-label="주차별 로그 테이블 및 주간 요약 자동 집계">
+          <div class="card-header">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <h2 class="card-title">📊 3. 주차별 로그 테이블 & 주간 자동 집계</h2>
+              <div class="week-tabs" aria-label="주차 선택">
+                ${[1, 2, 3, 4].map(w => `
+                  <button class="week-tab ${state.selectedWeekTab === w ? 'active' : ''}" aria-pressed="${state.selectedWeekTab === w}" onclick="selectWeekTab(${w})">W${w}</button>
+                `).join('')}
+                <button class="week-tab ${state.selectedWeekTab === 'all' ? 'active' : ''}" aria-pressed="${state.selectedWeekTab === 'all'}" onclick="selectWeekTab('all')">전체 28일</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button onclick="copyMeasurementsRow(${activeWeek})">📋 W${activeWeek} measurements.md 행 복사</button>
+            </div>
+          </div>
+
+          <!-- Weekly Summary & Aux Inputs for Active Week -->
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">
+              ${wMeta.title} — ${wMeta.subtitle}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+              <div style="font-size:12.5px;">
+                <strong>자동 산출:</strong>
+                7d MA 체중 (${state.days.filter(d => d.week === activeWeek && d.weight !== null).length}/7일 입력) <code style="color:var(--accent);font-weight:700;">${agg.maWeight} kg</code>
+                (${activeWeek === 1 ? '시작 98.2kg' : `전주 대비 ${agg.diffStr}`}) ·
+                평균 실수면 <code>${agg.avgSleepStr} (SE ${agg.avgSe}%)</code> ·
+                준수율: 수면 <code>${agg.bedCount}/7</code> | 식단 <code>${agg.mealCount}/7</code> | 운동 <code>${agg.sessionCount}/6회</code> | 최고 통증 <code>NRS ${agg.maxNrs}</code>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;font-size:12px;flex-wrap:wrap;">
+                <span style="color:var(--text-muted);">W${activeWeek} 주간 보조지표:</span>
+                <label>허리(cm) <input type="number" step="0.1" placeholder="99.0" id="aux-${activeWeek}-waist" value="${escapeHtml(aux.waist)}" onchange="updateAux(${activeWeek}, 'waist', this.value)" style="width:70px;" /></label>
+                <label>RHR(bpm) <input type="number" step="1" placeholder="64" id="aux-${activeWeek}-rhr" value="${escapeHtml(aux.rhr)}" onchange="updateAux(${activeWeek}, 'rhr', this.value)" style="width:62px;" /></label>
+                <label>최저 SpO2(%) <input type="number" step="1" placeholder="94" id="aux-${activeWeek}-spo2" value="${escapeHtml(aux.spo2)}" onchange="updateAux(${activeWeek}, 'spo2', this.value)" style="width:62px;" /></label>
+              </div>
+            </div>
+            <div class="md-preview-box" style="font-size:11px;">${escapeHtml(agg.summaryLine)}\n${escapeHtml(agg.complianceLine)}</div>
+          </div>
+
+          <div class="log-table-wrap">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>일자 (주차)</th>
+                  <th>신호등</th>
+                  <th>체중 / 수면(SE) / NRS</th>
+                  <th>운동 (Session Module)</th>
+                  <th>영양 (마감)</th>
+                  <th>수면 (취침)</th>
+                  <th>한 줄 메모</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </section>
+      `;
+    }
+
+    function localToday() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+
+    function computeProgressionGates(asOfId = state.selectedDayId, today = localToday()) {
+      const through = `2026-${asOfId}` < today ? `2026-${asOfId}` : today;
+      const past = state.days.filter(d => `2026-${d.id}` <= through);
+      const window = past.slice(-14);
+      const fullWindow = window.length === 14;
+      const mealCount = window.filter(isMealCompliant).length;
+      const bedCount = window.filter(isBedCompliant).length;
+      const regular = d => d.sessionDone && !d.altTagUsed;
+      const w3Cali = past.filter(d => d.week === 3 && d.sessionSpec === 'cali-30');
+      const consecutive = w3Cali.some((d, i) => i > 0 && regular(d) && regular(w3Cali[i - 1]));
+      const recentPain = window.slice(-2).map(d => d.nrs);
+      const painClear = recentPain.length === 2 && recentPain.every(v => v !== null && v <= 1);
+      const residence = past.length === 28 && today >= '2026-11-14';
+      const manual = (key, label, evidence = true) => ({ key, label, passed: state.gateChecks[key] && evidence });
+      const condition = (label, passed) => ({ label, passed: Boolean(passed) });
+      const completedWeek = Math.floor(past.length / 7);
+      let weightLoss = null;
+      if (completedWeek >= 2) {
+        const previous = state.days.filter(d => d.week === completedWeek - 1);
+        const current = state.days.filter(d => d.week === completedWeek);
+        if ([previous, current].every(days => days.every(d => d.weight !== null))) {
+          const prev = computeWeekAggregation(completedWeek - 1).maWeightNum;
+          const cur = computeWeekAggregation(completedWeek).maWeightNum;
+          weightLoss = 100 * (prev - cur) / prev;
+        }
+      }
+      const seValues = window.map(d => d.se).filter(v => v !== null);
+      const avgSe = seValues.length ? seValues.reduce((a, b) => a + b, 0) / seValues.length : null;
+      const dailySpo2 = window.map(d => d.spo2).filter(v => v !== null);
+      const weeks = [...new Set(window.map(d => d.week))];
+      const weeklySpo2 = weeks.map(w => state.weeklyAux[w].spo2);
+      const spo2Known = fullWindow && (dailySpo2.length >= 12 || weeklySpo2.every(v => v !== ''));
+      const allSpo2 = [...dailySpo2, ...weeklySpo2.filter(v => v !== '').map(Number)];
+      const gates = [
+        {
+          title: '🤸 칼리스데닉스 (Lv 1 → Lv 2)',
+          conditions: [
+            condition('W3 정규 근력 2회 연속 완료 (대체 모듈 제외)', consecutive),
+            manual('caliVolume', '트랙별 12회×3세트 / 등척성 45초×3세트 확인'),
+            manual('caliRir', 'HSR 3초 하강 및 마지막 세트 RIR ≥ 2 확인'),
+            manual('caliPain', '운동 후 24~48h NRS 0~1 확인 (최근 이틀 기록 필요)', painClear),
+            condition('4주 체류 · 11/14 종료일 도달', residence)
+          ]
+        },
+        {
+          title: '🏃 심폐 러닝 (Lv 0 → Lv 1-① Walk-Jog)',
+          conditions: [
+            manual('runVolume', '평일 40~45분·주말 60분 연속 보행 확인',
+              past.some(d => d.id === '11-01' && regular(d)) &&
+              past.some(d => d.week === 3 && d.sessionSpec === 'run-lv0' && d.dow !== '일' && regular(d))),
+            manual('runDrift', 'Zone 2 심박 드리프트 < 5% 확인'),
+            manual('runPain', '익일 첫발 통증 NRS 0~1 확인 (최근 이틀 기록 필요)', painClear),
+            manual('runDeload', 'W4 디로딩 완료 확인 (주간 운동 ≥ 6회 기록)',
+              past.filter(d => d.week === 4 && d.sessionDone).length >= 6),
+            condition('4주 체류 · 11/14 종료일 도달', residence)
+          ]
+        },
+        {
+          title: '🥗 대사 영양 (Lv 1 → Lv 2 → Lv 3)',
+          conditions: [
+            condition(`최근 14일 식사 마감 ${mealCount}/14일 (목표 ≥12)`, fullWindow && mealCount >= 12),
+            manual('nutriProtocol', '단백질·해당 Lv 규칙 확인 (W3 이후 프리로딩 포함)'),
+            condition(weightLoss === null ? '연속 두 주의 체중 7일씩 필요' : `전주 대비 감량 ${weightLoss.toFixed(2)}% (목표 0.5~0.8%)`,
+              weightLoss !== null && weightLoss >= 0.5 - 1e-8 && weightLoss <= 0.8 + 1e-8),
+            manual('nutriHunger', '야간 공복감 NRS ≤ 2 확인')
+          ]
+        },
+        {
+          title: '🌙 수면·회복 (Lv 1 → Lv 2 → Lv 3)',
+          conditions: [
+            condition(`최근 14일 수면 준수 ${bedCount}/14일 (목표 ≥12)`, fullWindow && bedCount >= 12),
+            manual('sleepCutoffs', '최근 14일 중 12일 4대 컷오프 준수 확인'),
+            manual('sleepWakeVar', '최근 14일 중 12일 기상 편차 ±60분 준수 확인'),
+            condition(`최근 14일 평균 SE ${avgSe === null ? '미입력' : avgSe.toFixed(1) + '%'} (12일 이상 기록)`,
+              fullWindow && seValues.length >= 12 && avgSe >= 85),
+            condition('최저 SpO2 ≥ 93% (일일 ≥12일 또는 해당 주간 지표 필요)',
+              spo2Known && allSpo2.length > 0 && Math.min(...allSpo2) >= 93)
+          ]
+        }
+      ];
+      return gates.map(g => ({ ...g, passed: g.conditions.filter(c => c.passed).length,
+        complete: g.conditions.every(c => c.passed) }));
+    }
+
+    function renderTrendAndGatesCard() {
+      const aggs = [1, 2, 3, 4].map(computeWeekAggregation);
+      const x = [70, 230, 390, 550];
+      const upper = [1, 2, 3, 4].map(w => 98.2 * Math.pow(0.995, w));
+      const lower = [1, 2, 3, 4].map(w => 98.2 * Math.pow(0.992, w));
+      const values = [98.2, ...lower, ...aggs.map(a => a.maWeightNum).filter(v => v !== null)];
+      const min = Math.floor((Math.min(...values) - 0.5) * 2) / 2;
+      const max = Math.ceil((Math.max(...values) + 0.5) * 2) / 2;
+      const y = value => 130 - (value - min) / (max - min) * 110;
+      const corridor = [...upper.map((v, i) => `${x[i]},${y(v)}`),
+        ...lower.map((v, i) => `${x[i]},${y(v)}`).reverse()].join(' ');
+      const points = aggs.map((a, i) => a.maWeightNum === null ? null : ({ x: x[i], y: y(a.maWeightNum), value: a.maWeight }));
+      const through = `2026-${state.selectedDayId}` < localToday() ? `2026-${state.selectedDayId}` : localToday();
+      return `
+        <section class="card" aria-label="4주 체중 추이 코리도 및 Progression Gate">
+          <div class="card-header">
+            <h2 class="card-title">📈 4. 4주 체중 추이 & Progression Gate</h2>
+            <span class="tag">시작 98.2kg · 주간 -0.5 ~ -0.8%</span>
+          </div>
+          <div style="background:#0a0e14;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;">
+            <svg viewBox="0 0 640 160" width="100%" height="160" role="img" aria-label="주차별 입력 체중 평균과 주간 0.5~0.8% 감량 목표 범위">
+              ${[max, (max + min) / 2, min].map(v => `
+                <line x1="50" y1="${y(v)}" x2="610" y2="${y(v)}" stroke="#1f2937" stroke-dasharray="3 3" />
+                <text x="2" y="${y(v) + 4}" fill="#8b949e" font-size="10">${v.toFixed(1)}kg</text>`).join('')}
+              <polygon points="${corridor}" fill="rgba(56,189,248,0.13)" stroke="rgba(56,189,248,0.4)" />
+              ${points.map((p, i) => p && i > 0 && points[i - 1]
+                ? `<line x1="${points[i - 1].x}" y1="${points[i - 1].y}" x2="${p.x}" y2="${p.y}" stroke="#22c55e" stroke-width="2.5" />` : '').join('')}
+              ${points.map((p, i) => p ? `<circle cx="${p.x}" cy="${p.y}" r="5" fill="#22c55e" /><text x="${p.x - 30}" y="${p.y - 9}" fill="#e6edf3" font-size="11">W${i + 1} ${p.value}kg</text>` : '').join('')}
+              ${x.map((v, i) => `<text x="${v - 12}" y="150" fill="#8b949e" font-size="11">W${i + 1}</text>`).join('')}
+            </svg>
+            <p style="font-size:11px;color:var(--text-muted);margin:0;">파랑: 시작 체중에서 주별 감량 목표 · 초록: 주간 내 입력된 체중 평균 (빈 날짜 제외)</p>
+          </div>
+          <p style="font-size:12px;color:var(--text-muted);">선택일과 오늘 중 이른 날(${through})까지의 기록으로 확인합니다. 자동 집계와 직접 확인을 모두 충족해야 합니다. 세부 트랙 승급은 <a href="./README.md#4-종료-심사-및-회고-progression-gate--close-out" target="_blank">종료 체크리스트</a>에서 최종 판정합니다.</p>
+          <div class="gate-grid">
+            ${computeProgressionGates().map(gate => `
+              <div class="gate-card">
+                <strong>${escapeHtml(gate.title)}</strong>
+                <div class="tag" style="display:inline-block;margin-top:5px;">${gate.complete ? '조건 충족 · 최종 판정 확인' : '판정 보류'} · 확인 ${gate.passed}/${gate.conditions.length}</div>
+                <div class="gate-progress" role="progressbar" aria-label="${escapeHtml(gate.title)} 확인 조건" aria-valuenow="${gate.passed}" aria-valuemin="0" aria-valuemax="${gate.conditions.length}"><div class="gate-bar" style="width:${Math.round(gate.passed / gate.conditions.length * 100)}%;"></div></div>
+                ${gate.conditions.map(c => c.key ? `
+                  <label class="gate-check-item"><input id="gate-${c.key}" type="checkbox" ${state.gateChecks[c.key] ? 'checked' : ''} onchange="toggleGateCheck('${c.key}', this.checked)" /><span>${c.passed ? '✓' : '…'} ${escapeHtml(c.label)}</span></label>`
+                  : `<div class="gate-check-item">${c.passed ? '✓' : '…'} ${escapeHtml(c.label)}</div>`).join('')}
+              </div>`).join('')}
+          </div>
+        </section>`;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // =========================================================================
+    // 6. INTERACTION CONTROLLERS & DIALOG FALLBACK
+    // =========================================================================
+    // Keep existing form nodes while updating their surrounding text and attributes.
+    // Replacing a focused input also destroys native Tab navigation and number editing.
+    function updateView(parent, markup, preserveActiveControl = false) {
+      const template = document.createElement('template');
+      template.innerHTML = markup;
+      function syncNode(current, next) {
+        if (current.nodeType !== next.nodeType || current.nodeName !== next.nodeName ||
+            (current.nodeType === 1 && current.id !== next.id)) {
+          current.replaceWith(next.cloneNode(true));
+          return;
+        }
+        if (current.nodeType !== 1) {
+          if (current.nodeValue !== next.nodeValue) current.nodeValue = next.nodeValue;
+          return;
+        }
+        const keepValue = preserveActiveControl && current === document.activeElement;
+        for (const attr of [...current.attributes]) if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+        for (const attr of next.attributes) if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+        syncChildren(current, next);
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(current.tagName)) {
+          if (!keepValue && current.value !== next.value) current.value = next.value;
+          if (current.tagName === 'INPUT') current.checked = next.checked;
+        }
+      }
+      function syncChildren(current, next) {
+        const oldChildren = [...current.childNodes], newChildren = [...next.childNodes];
+        newChildren.forEach((child, i) => {
+          if (oldChildren[i]) syncNode(oldChildren[i], child);
+          else current.appendChild(child.cloneNode(true));
+        });
+        oldChildren.slice(newChildren.length).forEach(child => child.remove());
+      }
+      syncChildren(parent, template.content);
+    }
+
+    function renderAll(preserveActiveControl = false) {
+      updateSyncStatus();
+      const sel = document.getElementById('day-select');
+      sel.innerHTML = state.days.map(d => {
+        const r = evaluateReadiness(d);
+        const icon = r.grade === 'green' ? '🟢' : r.grade === 'yellow' ? '🟡' : r.grade === 'red' ? '🔴' : '⚪';
+        const doneMark = d.sessionDone ? ' ✅' : '';
+        return `<option value="${d.id}" ${d.id === state.selectedDayId ? 'selected' : ''}>W${d.week} · ${d.label} ${icon}${doneMark} — ${d.role}</option>`;
+      }).join('');
+
+      const day = getActiveDay();
+      const readiness = evaluateReadiness(day);
+      const adapted = getAdaptedModules(day, readiness);
+
+      const mount = document.getElementById('app-mount');
+      updateView(mount, `
+        <div class="workbench-grid">
+          <div class="col-stack">
+            ${renderMorningCheckinCard(day, readiness)}
+            ${renderBriefingAndExecutionCard(day, readiness, adapted)}
+          </div>
+          <div class="col-stack">
+            ${renderWeeklyTableAndSummaryCard()}
+            ${renderTrendAndGatesCard()}
+          </div>
+        </div>
+      `, preserveActiveControl);
+    }
+
+    function selectDay(dayId) {
+      if (!state.days.some(d => d.id === dayId)) return;
+      state.selectedDayId = dayId;
+      const day = getActiveDay();
+      if (state.selectedWeekTab !== 'all') {
+        state.selectedWeekTab = day.week;
+      }
+      saveStateToLocalStorage();
+      renderAll();
+    }
+
+    function stepDay(delta) {
+      const idx = state.days.findIndex(d => d.id === state.selectedDayId);
+      if (idx === -1) return;
+      const nextIdx = Math.max(0, Math.min(state.days.length - 1, idx + delta));
+      selectDay(state.days[nextIdx].id);
+    }
+
+    function selectWeekTab(tabVal) {
+      state.selectedWeekTab = tabVal;
+      if (tabVal !== 'all') {
+        const currentDay = getActiveDay();
+        if (currentDay.week !== tabVal) {
+          const firstDayOfWeek = state.days.find(d => d.week === tabVal);
+          if (firstDayOfWeek) state.selectedDayId = firstDayOfWeek.id;
+        }
+      }
+      saveStateToLocalStorage();
+      renderAll();
+    }
+
+    function renderPreservingFocus() {
+      renderAll(true);
+    }
+
+    function updateDayField(field, rawVal) {
+      const day = getActiveDay();
+      const allowed = [...Object.keys(NUMERIC_RULES), 'memo', 'mealTime', 'bedTime',
+        'sessionDone', 'trafficOverride', 'mealProtocolOk', 'bedOverride', 'alcohol'];
+      if (!allowed.includes(field)) return;
+      let value = rawVal;
+      try {
+        if (field in NUMERIC_RULES) {
+          value = numericValue(rawVal, field);
+          if (value !== null && ['weight', 'sleepH'].includes(field)) value = Math.round((value + Number.EPSILON) * 10) / 10;
+        }
+        if (['mealTime', 'bedTime'].includes(field) && value !== '' && !isValidTime(value)) throw new Error('시각은 HH:MM 형식으로 입력해 주세요.');
+        if (field === 'memo') value = String(value).replace(/\r?\n/g, ' ');
+        if (field === 'trafficOverride' && value !== null && !['green', 'yellow', 'red'].includes(value)) return;
+        if (field === 'bedOverride' && value !== null && typeof value !== 'boolean') return;
+        if (['sessionDone', 'mealProtocolOk', 'alcohol'].includes(field) && typeof value !== 'boolean') return;
+      } catch (err) {
+        showToast(err.message);
+        return;
+      }
+      day[field] = value;
+      day.touched = true;
+      day.dirtyFields[field] = true;
+      if (['sleepH', 'se', 'nrs', 'rhrDelta', 'spo2', 'hrvDrop', 'awakenings', 'alcohol', 'trafficOverride'].includes(field)) day.readinessDirty = true;
+      if (field === 'sessionDone') day.altTagUsed = value ? getAdaptedModules(day, evaluateReadiness(day)).altSessionTag : null;
+      if (field === 'mealTime') day.mealRecorded = Boolean(value);
+      if (field === 'bedTime') day.bedRecorded = Boolean(value);
+      if (EXTRA_DAY_FIELDS.includes(field) || ['mealTime', 'bedTime'].includes(field)) state.metadataDirty = true;
+      autoPersist();
+      renderPreservingFocus();
+    }
+
+    function updateSupp(slotKey, checked) {
+      if (!['s1', 's2', 's3', 's4'].includes(slotKey)) return;
+      getActiveDay().supps[slotKey] = Boolean(checked);
+      state.metadataDirty = true;
+      autoPersist();
+      renderPreservingFocus();
+    }
+
+    function updateAux(weekNum, field, val) {
+      if (!state.weeklyAux[weekNum] || !['waist', 'rhr', 'spo2'].includes(field)) return;
+      const number = Number(val);
+      if (val !== '' && (!Number.isFinite(number) || number < 0 || number > (field === 'spo2' ? 100 : 500))) {
+        showToast('보조 지표의 입력 범위를 확인해 주세요.');
+        return;
+      }
+      state.weeklyAux[weekNum][field] = val === '' ? '' : String(number);
+      state.dirtyWeeks[weekNum] = true;
+      autoPersist();
+      renderPreservingFocus();
+    }
+
+    function toggleGateCheck(key, checked) {
+      if (!(key in state.gateChecks)) return;
+      state.gateChecks[key] = Boolean(checked);
+      state.metadataDirty = true;
+      autoPersist();
+      renderPreservingFocus();
+    }
+
+    function openCatalog(specKey) {
+      const spec = CATALOG_SPECS[specKey] || CATALOG_SPECS['cali-30'];
+      const day = getActiveDay();
+      const readiness = evaluateReadiness(day);
+      const adapted = getAdaptedModules(day, readiness);
+      document.getElementById('drawer-title').textContent = spec.title;
+      document.getElementById('drawer-body').innerHTML = `
+        <div class="drawer-step"><strong>W${day.week} · ${day.label}의 실행 계획</strong><p>${escapeHtml(WEEK_META[day.week].intent)}</p><p>${escapeHtml(adapted.session)}</p><p>${escapeHtml(adapted.meal)}</p><p>${escapeHtml(adapted.recovery)}</p></div>
+        ${readiness.grade === 'yellow' || readiness.grade === 'red' ? `
+          <div style="background:${readiness.grade === 'red' ? 'var(--red-bg)' : 'var(--yellow-bg)'};border:1px solid ${readiness.grade === 'red' ? 'var(--red)' : 'var(--yellow)'};color:${readiness.grade === 'red' ? 'var(--red)' : 'var(--yellow)'};padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:12.5px;font-weight:600;">
+            ${readiness.grade === 'red' ? '🔴 정규 근력·충격 훈련은 중단합니다. 위의 오늘 대체 모듈을 따르고, 아래 정규 모듈은 참고 자료로만 열람하세요.' : escapeHtml(spec.yellowNote)}
+          </div>
+        ` : ''}
+        <div style="margin-bottom:14px;">
+          ${spec.steps.map(s => `<div class="drawer-step">${s}</div>`).join('')}
+        </div>
+        <div style="font-size:12.5px;border-top:1px solid var(--border);padding-top:12px;">
+          🔗 원문 마크다운 아키텍처 딥링크: <a href="${spec.link}" target="_blank">${spec.link}</a>
+        </div>
+      `;
+      document.getElementById('catalog-drawer').showModal();
+    }
+
+    function copyMeasurementsRow(weekNum) {
+      return copyMarkdown(computeWeekAggregation(weekNum).measurementsRow, `W${weekNum} measurements.md 행을 복사했습니다.`);
+    }
+
+    // MANDATORY fallback for browsers without <dialog closedby="any"> support (modern-web-guidance)
+    const dialogEl = document.getElementById('catalog-drawer');
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+      dialogEl.addEventListener('click', (event) => {
+        if (event.target !== dialogEl) return;
+        const rect = dialogEl.getBoundingClientRect();
+        const isDialogContent = (
+          rect.top <= event.clientY &&
+          event.clientY <= rect.top + rect.height &&
+          rect.left <= event.clientX &&
+          event.clientX <= rect.left + rect.width
+        );
+        if (isDialogContent) return;
+        dialogEl.close();
+      });
+    }
+
+    // Initialize dashboard
+    loadStateFromLocalStorage();
+    renderAll();
+  </script>
+</body>
+</html>

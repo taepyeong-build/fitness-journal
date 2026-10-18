@@ -17,6 +17,7 @@ related_research:
 > - **실행 기간**: `2026-10-18 (일) ~ 2026-11-14 (토)` (4주간, `일~토` 주간 사이클)
 > - **주간 운영 모드**: **`병행 모드 (Concurrent Mode)`** — 주 3회 칼리스데닉스(`화·목·토`) + 주 3~4회 무충격 Zone 2 보행(`일·월·수·금`) ([상세 구조](../../research/cardio-metabolic-running-architecture.md#3-칼리스데닉스-병행concurrent-vs-유산소-단독cardio-focus-2원화-주간-운영-아키텍처))
 > - **일일/주간 실행 기록**: [`log.md`](./log.md) | **측정 추이 반영**: [`profile/measurements.md`](../../profile/measurements.md)
+> - **실행·기록 대시보드**: [`dashboard.html`](./dashboard.html)을 브라우저에서 연다. 설치나 서버 없이 오늘의 모듈·입력·4주 추이를 함께 볼 수 있다. 사용·저장 방법과 검증 명령은 [대시보드 안내](./dashboard-guide.md)를 참고한다.
 
 ---
 
