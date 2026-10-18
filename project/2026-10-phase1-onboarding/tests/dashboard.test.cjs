@@ -372,6 +372,24 @@ test('manual Markdown time and traffic edits replace stale hidden overrides', ()
   assert.equal(imported.run('evaluateReadiness(state.days.find(d => d.id === "11-01")).grade'), 'red');
 });
 
+test('older snapshot-less sidecars cannot mask changed visible times with stale positive confirmation', () => {
+  const app = dashboard();
+  app.run("selectDay('11-01'); updateDayField('weight', '98.0'); updateDayField('bedOverride', true);");
+  const older = app.export().replace(/,"sourceTimes":\{[^}]+\}/g, '');
+  const row = older.split('\n').find(line => line.startsWith('| **11-01'));
+  const imported = dashboard();
+  imported.import(older.replace(row, row.replace('`18:30`', '`18:20`').replace('`22:30`', '`23:30`')));
+  assert.equal(imported.run('computeWeekAggregation(3).mealCount'), 1);
+  assert.equal(imported.run('computeWeekAggregation(3).bedCount'), 0);
+  const untouched = dashboard();
+  untouched.import(older);
+  assert.equal(untouched.run('computeWeekAggregation(3).mealCount'), 0);
+  assert.equal(untouched.run('computeWeekAggregation(3).bedCount'), 0);
+  const current = dashboard();
+  current.import(app.export());
+  assert.equal(current.run('computeWeekAggregation(3).bedCount'), 1);
+});
+
 test('legacy browser backups retain actual edits and recheck synthetic defaults and planned times', () => {
   const app = dashboard();
   const legacy = JSON.parse(app.run(`JSON.stringify({

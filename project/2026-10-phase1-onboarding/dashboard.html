@@ -860,6 +860,14 @@
       return cells.slice(1, -1);
     }
 
+    const PLANNED_TIMES = Object.fromEntries(DEFAULT_LOG_MD.split('\n').flatMap(line => {
+      const match = line.match(/^\|\s*\*\*(\d{2}-\d{2})\s*\(/);
+      if (!match) return [];
+      const cells = splitMarkdownRow(line);
+      return [[match[1], { meal: extractMealBaseAndTemplate(cells[4]).timeVal,
+        bed: extractRecoveryBaseAndTemplate(cells[5]).timeVal }]];
+    }));
+
     function validateParsedLog(parsed) {
       if (parsed.days.length !== 28) throw new Error('Phase 1의 W1~W4, 28일 기록이 모두 필요합니다.');
       parsed.days.forEach((day, i) => {
@@ -921,10 +929,9 @@
           throw new Error(`${id}: 식사·취침 시각 슬롯을 확인해 주세요.`);
         }
         const recorded = Boolean(parsedLight || weight !== null || sleepH !== null || se !== null || nrs !== null || session.sessionDone);
-        const plannedLine = DEFAULT_LOG_MD.split('\n').find(row => row.startsWith(`| **${id} (`));
-        const plannedCells = plannedLine ? splitMarkdownRow(plannedLine) : [];
-        const changedMealTime = plannedCells[4] && meal.timeVal !== extractMealBaseAndTemplate(plannedCells[4]).timeVal;
-        const changedBedTime = plannedCells[5] && recovery.timeVal !== extractRecoveryBaseAndTemplate(plannedCells[5]).timeVal;
+        const planned = PLANNED_TIMES[id] || { meal: '', bed: '' };
+        const changedMealTime = meal.timeVal !== planned.meal;
+        const changedBedTime = recovery.timeVal !== planned.bed;
         days.push({
           id, week: currentWeek, dow, label: `${id} (${dow})`, role: DAY_ROLE_BY_DOW[dow] || '',
           rawLine: line, dirtyFields: {}, readinessDirty: false, touched: false,
@@ -950,8 +957,12 @@
         for (const day of days) {
           const extra = metadata.days?.[day.id];
           if (!extra || typeof extra !== 'object') continue;
-          const mealTimeEdited = typeof extra.sourceTimes?.meal === 'string' && extra.sourceTimes.meal !== day.mealTime;
-          const bedTimeEdited = typeof extra.sourceTimes?.bed === 'string' && extra.sourceTimes.bed !== day.bedTime;
+          const mealSnapshot = typeof extra.sourceTimes?.meal === 'string';
+          const bedSnapshot = typeof extra.sourceTimes?.bed === 'string';
+          const mealTimeEdited = mealSnapshot ? extra.sourceTimes.meal !== day.mealTime
+            : extra.mealRecorded === false && day.mealTime !== PLANNED_TIMES[day.id]?.meal;
+          const bedTimeEdited = bedSnapshot ? extra.sourceTimes.bed !== day.bedTime
+            : extra.bedRecorded === false && day.bedTime !== PLANNED_TIMES[day.id]?.bed;
           for (const field of EXTRA_DAY_FIELDS) {
             if (!(field in extra)) continue;
             const value = extra[field];
@@ -962,6 +973,8 @@
           }
           if (mealTimeEdited) day.mealRecorded = Boolean(day.mealTime);
           if (bedTimeEdited) { day.bedRecorded = Boolean(day.bedTime); day.bedOverride = null; }
+          // Old comments cannot tie a positive manual confirmation to a visible time.
+          if (!bedSnapshot && day.bedOverride === true) day.bedOverride = null;
           for (const key of Object.keys(day.supps)) {
             if (typeof extra.supps?.[key] === 'boolean') day.supps[key] = extra.supps[key];
           }
