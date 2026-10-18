@@ -257,7 +257,7 @@ test('rapid edits write in order and the final file contains the latest entry', 
 test('external edits stop automatic writes and preserve both the file and browser records', async () => {
   const app = dashboard();
   const file = connectMemoryFile(app);
-  const external = canonical + '\n外部에서 추가한 메모\n';
+  const external = canonical + '\n외부에서 추가한 메모\n';
   file.externalEdit(external);
   app.run("updateDayField('memo', '브라우저의 새 기록');");
   await app.run('fileWriteQueue');
@@ -333,4 +333,76 @@ test('invalid numeric/time imports are rejected and summary annotations remain u
   app.import(canonical.replace('관절·첫발 최고 통증 `NRS __`', '관절·첫발 최고 통증 `NRS __` · 별도 지표 `3 / 7`'));
   app.run("updateDayField('weight', '98.1');");
   assert.ok(app.export().includes('별도 지표 `3 / 7`'));
+});
+
+test('manual addition and removal of a visible nutrition exception override older sidecar state', () => {
+  const app = dashboard();
+  app.run("selectDay('10-19'); updateDayField('mealTime', '18:30');");
+  const exported = app.export();
+  const row = exported.split('\n').find(line => line.startsWith('| **10-19'));
+  const exception = exported.replace(row, row.replace('`18:30` 마감)', '`18:30` 마감) ⚠️ 영양 프로토콜 예외'));
+  const imported = dashboard();
+  imported.import(exception);
+  assert.equal(imported.run('getActiveDay().id'), '10-18');
+  assert.equal(imported.run('state.days.find(d => d.id === "10-19").mealProtocolOk'), false);
+  assert.equal(imported.run('computeWeekAggregation(1).mealCount'), 1);
+  imported.run("selectDay('10-19'); updateDayField('mealProtocolOk', false); updateSupp('s2', true);");
+  const without = imported.export().replace(' ⚠️ 영양 프로토콜 예외', '');
+  const restored = dashboard();
+  restored.import(without);
+  assert.equal(restored.run('computeWeekAggregation(1).mealCount'), 2);
+  // v2 exports from before this fix carried this duplicate field in the comment.
+  const stale = without.replace('"10-19":{', '"10-19":{"mealProtocolOk":false,');
+  const older = dashboard();
+  older.import(stale);
+  assert.equal(older.run('computeWeekAggregation(1).mealCount'), 2);
+});
+
+test('manual Markdown time and traffic edits replace stale hidden overrides', () => {
+  const app = dashboard();
+  app.run("selectDay('11-01'); updateDayField('weight', '98.0'); updateDayField('trafficOverride', 'yellow'); updateDayField('bedOverride', true);");
+  const exported = app.export();
+  const row = exported.split('\n').find(line => line.startsWith('| **11-01'));
+  const edited = row.replace('`🟡`', '`🔴`').replace('`18:30`', '`18:20`').replace('`22:30`', '`23:30`');
+  const imported = dashboard();
+  imported.import(exported.replace(row, edited));
+  assert.equal(imported.run('computeWeekAggregation(3).mealCount'), 1);
+  assert.equal(imported.run('computeWeekAggregation(3).bedCount'), 0);
+  assert.equal(imported.run('state.days.find(d => d.id === "11-01").bedOverride'), null);
+  assert.equal(imported.run('evaluateReadiness(state.days.find(d => d.id === "11-01")).grade'), 'red');
+});
+
+test('legacy browser backups retain actual edits and recheck synthetic defaults and planned times', () => {
+  const app = dashboard();
+  const legacy = JSON.parse(app.run(`JSON.stringify({
+    baseMarkdown: DEFAULT_LOG_MD, selectedDayId: '11-01', selectedWeekTab: 3,
+    gateChecks: { caliRir: true, runDrift: true, nutriHunger: true, sleepWakeVar: true },
+    days: state.days.map(d => ({ id: d.id, weight: d.weight, sleepH: d.sleepH, se: d.se, nrs: d.nrs,
+      rhrDelta: 0, spo2: 94, mealTime: d.mealTime, bedTime: d.bedTime,
+      sessionDone: false, altTagUsed: null, trafficOverride: null, mealProtocolOk: true,
+      memo: d.id === '11-01' ? '계획 확인' : d.memo, touched: d.id === '11-01',
+      supps: { s1: d.week >= 3 && Boolean(d.mealTime && d.parsedLight),
+        s2: Boolean(d.parsedLight), s3: Boolean(d.parsedLight), s4: Boolean(d.parsedLight) }
+    })) })`));
+  const actual = legacy.days.find(d => d.id === '10-19');
+  actual.mealTime = '18:45'; actual.bedTime = '22:30'; actual.rhrDelta = 3; actual.supps.s2 = true;
+  app.storage.set(app.run('STORAGE_KEY'), JSON.stringify(legacy));
+  assert.equal(app.run('loadStateFromLocalStorage()'), true);
+  assert.equal(app.run('getActiveDay().memo'), '계획 확인');
+  assert.equal(app.run('computeWeekAggregation(3).mealCount'), 0);
+  assert.equal(app.run('computeWeekAggregation(3).bedCount'), 0);
+  assert.equal(app.run('computeWeekAggregation(1).mealCount'), 2);
+  assert.equal(app.run('computeWeekAggregation(1).bedCount'), 2);
+  assert.equal(app.run('state.days[0].supps.s2'), false);
+  assert.equal(app.run('state.days[0].spo2'), null);
+  assert.equal(app.run('state.days[0].rhrDelta'), null);
+  assert.equal(app.run('state.days[1].supps.s2'), true);
+  assert.equal(app.run('state.days[1].rhrDelta'), 3);
+  assert.equal(app.run('state.gateChecks.nutriHunger'), false);
+  assert.equal(app.run('state.gateChecks.sleepWakeVar'), false);
+  assert.equal(app.run('state.gateChecks.runDrift'), true);
+  assert.equal(app.run('state.gateChecks.caliRir'), true);
+  app.run('saveStateToLocalStorage(); loadStateFromLocalStorage();');
+  assert.equal(app.run('computeWeekAggregation(3).mealCount'), 0);
+  assert.equal(app.run('computeWeekAggregation(3).bedCount'), 0);
 });

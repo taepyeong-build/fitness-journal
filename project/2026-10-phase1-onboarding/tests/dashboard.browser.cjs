@@ -154,6 +154,16 @@ async function main() {
     assert.equal(await page.locator('#inp-memo').inputValue(), '브라우저 쪽 최신 기록');
     check('fallback file import restores Markdown and detaches the prior writable handle');
 
+    const originalRow = exported.split('\n').find(line => line.startsWith('| **10-18'));
+    const edited = exported.replace(originalRow, originalRow.replace('`18:30` 마감', '`18:30` 마감 ⚠️ 영양 프로토콜 예외'));
+    await page.locator('#fallback-file-input').setInputFiles({ name: 'log.md', mimeType: 'text/markdown', buffer: Buffer.from(edited) });
+    await page.waitForFunction(() => !state.days.find(d => d.id === '10-18').mealProtocolOk);
+    assert.equal(await page.evaluate(() => computeWeekAggregation(1).mealCount), 0);
+    await page.locator('#fallback-file-input').setInputFiles({ name: 'log.md', mimeType: 'text/markdown', buffer: Buffer.from(exported) });
+    await page.waitForFunction(() => state.days.find(d => d.id === '10-18').mealProtocolOk);
+    assert.equal(await page.evaluate(() => computeWeekAggregation(1).mealCount), 1);
+    check('manual nutrition marker edits in imported Markdown control compliance');
+
     await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
       configurable: true, value: { writeText: async () => { throw new Error('permission denied'); } }
     }));
@@ -196,6 +206,26 @@ async function main() {
     await mobile.mouse.click(2, 400);
     assert.equal(await mobile.locator('#catalog-drawer').isVisible(), false);
     check('390px mobile layout, native drawer, Escape and outside-click dismissal');
+
+    await mobile.evaluate(() => {
+      const legacy = {
+        baseMarkdown: DEFAULT_LOG_MD, selectedDayId: '11-01', selectedWeekTab: 3,
+        gateChecks: { caliRir: false, runDrift: false, nutriHunger: true, sleepWakeVar: true },
+        days: state.days.map(d => ({ ...d, rhrDelta: 0, spo2: 94,
+          memo: d.id === '11-01' ? '이전 백업의 계획 메모' : d.memo, touched: d.id === '11-01',
+          supps: { s1: d.week >= 3 && Boolean(d.mealTime && d.parsedLight),
+            s2: Boolean(d.parsedLight), s3: Boolean(d.parsedLight), s4: Boolean(d.parsedLight) }
+        }))
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+    });
+    await mobile.reload();
+    assert.equal(await mobile.locator('#inp-memo').inputValue(), '이전 백업의 계획 메모');
+    assert.equal(await mobile.evaluate(() => computeWeekAggregation(3).mealCount), 0);
+    assert.equal(await mobile.evaluate(() => computeWeekAggregation(3).bedCount), 0);
+    assert.equal(await mobile.locator('#gate-nutriHunger').isChecked(), false);
+    assert.equal(await mobile.locator('#gate-sleepWakeVar').isChecked(), false);
+    check('legacy browser backups keep notes without promoting planned times or automatic checks');
 
     const direct = await context.newPage();
     direct.on('pageerror', error => errors.push(error.message));

@@ -772,6 +772,7 @@
       const template = trimmed.replace(/`(__ : __|\d{2}:\d{2})`/, '`{TIME}`');
       // Human-readable label without markdown link URLs
       const label = trimmed
+        .replace(/\s*⚠️ 영양 프로토콜 예외/g, '')
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
         .replace(/\s*·?\s*\(?`(__ : __|\d{2}:\d{2})`(\s*마감)?\)?/g, '')
         .replace(/`/g, '')
@@ -825,7 +826,7 @@
       rhrDelta: [-300, 300], spo2: [0, 100], hrvDrop: [-100, 100], awakenings: [0, 30, true]
     };
     const EXTRA_DAY_FIELDS = ['rhrDelta', 'spo2', 'hrvDrop', 'awakenings', 'alcohol',
-      'trafficOverride', 'mealProtocolOk', 'mealRecorded', 'bedRecorded', 'bedOverride'];
+      'trafficOverride', 'mealRecorded', 'bedRecorded', 'bedOverride'];
     const TRAFFIC_ICONS = { green: '🟢', yellow: '🟡', red: '🔴', none: '⚪' };
     const METADATA_PATTERN = /<!-- phase1-dashboard:v1\s+([\s\S]*?)\s+-->/;
 
@@ -949,14 +950,18 @@
         for (const day of days) {
           const extra = metadata.days?.[day.id];
           if (!extra || typeof extra !== 'object') continue;
+          const mealTimeEdited = typeof extra.sourceTimes?.meal === 'string' && extra.sourceTimes.meal !== day.mealTime;
+          const bedTimeEdited = typeof extra.sourceTimes?.bed === 'string' && extra.sourceTimes.bed !== day.bedTime;
           for (const field of EXTRA_DAY_FIELDS) {
             if (!(field in extra)) continue;
             const value = extra[field];
             if (field in NUMERIC_RULES) day[field] = numericValue(value, field);
             else if (field === 'trafficOverride') {
-              if (value === null || ['green', 'yellow', 'red'].includes(value)) day[field] = value;
+              if (value === null || value === day.parsedLight) day[field] = value;
             } else if (typeof value === 'boolean' || (field === 'bedOverride' && value === null)) day[field] = value;
           }
+          if (mealTimeEdited) day.mealRecorded = Boolean(day.mealTime);
+          if (bedTimeEdited) { day.bedRecorded = Boolean(day.bedTime); day.bedOverride = null; }
           for (const key of Object.keys(day.supps)) {
             if (typeof extra.supps?.[key] === 'boolean') day.supps[key] = extra.supps[key];
           }
@@ -1239,7 +1244,8 @@
       if (state.metadataDirty) {
         const eol = baseMdText.includes('\r\n') ? '\r\n' : '\n';
         const days = Object.fromEntries(state.days.map(day => [day.id, {
-          ...Object.fromEntries(EXTRA_DAY_FIELDS.map(key => [key, day[key]])), supps: day.supps
+          ...Object.fromEntries(EXTRA_DAY_FIELDS.map(key => [key, day[key]])), supps: day.supps,
+          sourceTimes: { meal: day.mealTime, bed: day.bedTime }
         }]));
         // The seven visible columns stay intact; portable UI-only records live in a comment.
         const json = JSON.stringify({ days, gateChecks: state.gateChecks }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
@@ -1323,34 +1329,59 @@
           for (const day of parsed.days) {
             const old = saved.days.find(d => d.id === day.id);
             if (!old) throw new Error('이전 백업에 날짜가 빠져 있습니다.');
+            const initialMealTime = day.mealTime, initialBedTime = day.bedTime;
+            const sourceMealRecorded = day.mealRecorded, sourceBedRecorded = day.bedRecorded;
             for (const field of ['weight', 'sleepH', 'se', 'nrs', 'rhrDelta', 'spo2']) {
-              if (field in old) {
-                day[field] = numericValue(old[field], field);
+              if (!(field in old)) continue;
+              // The old UI inserted these defaults without a measurement.
+              const value = (field === 'spo2' && old[field] === 94) ||
+                (field === 'rhrDelta' && old[field] === 0) ? null : numericValue(old[field], field);
+              if (value !== day[field]) {
+                day[field] = value;
                 day.dirtyFields[field] = true;
+                if (field !== 'weight') day.readinessDirty = true;
               }
             }
             for (const field of ['mealTime', 'bedTime']) {
-              if (old[field] && !isValidTime(old[field])) throw new Error('이전 백업의 시각 형식 오류');
-              day[field] = old[field] || '';
-              day.dirtyFields[field] = true;
+              if (!(field in old)) continue;
+              const value = old[field] || '';
+              if (value && !isValidTime(value)) throw new Error('이전 백업의 시각 형식 오류');
+              if (value !== day[field]) { day[field] = value; day.dirtyFields[field] = true; }
             }
-            day.sessionDone = old.sessionDone === true;
-            day.altTagUsed = typeof old.altTagUsed === 'string' ? old.altTagUsed.slice(0, 120) : null;
-            day.memo = typeof old.memo === 'string' ? old.memo.replace(/\r?\n/g, ' ') : day.memo;
-            day.dirtyFields.memo = day.dirtyFields.sessionDone = true;
-            day.readinessDirty = Boolean(old.touched);
-            day.mealRecorded = Boolean(day.mealTime && (old.touched || isDayActiveForCompliance(day)));
-            day.bedRecorded = Boolean(day.bedTime && (old.touched || isDayActiveForCompliance(day)));
-            day.mealProtocolOk = old.mealProtocolOk !== false;
-            if (['green', 'yellow', 'red'].includes(old.trafficOverride)) day.trafficOverride = old.trafficOverride;
-            for (const key of Object.keys(day.supps)) if (typeof old.supps?.[key] === 'boolean') day.supps[key] = old.supps[key];
+            const completed = old.sessionDone === true;
+            const alternative = typeof old.altTagUsed === 'string' ? old.altTagUsed.slice(0, 120) : null;
+            if (completed !== day.sessionDone || alternative !== day.altTagUsed) {
+              day.sessionDone = completed; day.altTagUsed = alternative; day.dirtyFields.sessionDone = true;
+            }
+            if (typeof old.memo === 'string' && old.memo !== day.memo) {
+              day.memo = old.memo.replace(/\r?\n/g, ' '); day.dirtyFields.memo = true;
+            }
+            // Legacy `touched` also meant memo/supplement edits, not time completion.
+            day.mealRecorded = Boolean(day.mealTime && (sourceMealRecorded || day.mealTime !== initialMealTime));
+            day.bedRecorded = Boolean(day.bedTime && (sourceBedRecorded || day.bedTime !== initialBedTime));
+            if (old.mealProtocolOk === false && day.mealProtocolOk) {
+              day.mealProtocolOk = false; day.dirtyFields.mealProtocolOk = true;
+            }
+            if (['green', 'yellow', 'red'].includes(old.trafficOverride)) {
+              day.trafficOverride = old.trafficOverride; day.dirtyFields.trafficOverride = true;
+            }
+            for (const key of Object.keys(day.supps)) {
+              const oldAutomaticCheck = key === 's1'
+                ? day.week >= 3 && Boolean(initialMealTime && day.parsedLight) : Boolean(day.parsedLight);
+              if (typeof old.supps?.[key] === 'boolean') day.supps[key] = old.supps[key] && !oldAutomaticCheck;
+            }
           }
-          for (const key of Object.keys(parsed.gateChecks)) {
+          // These were false until explicitly checked; the other two old gates
+          // defaulted true and therefore need human confirmation again.
+          for (const key of ['caliRir', 'runDrift']) {
             if (typeof saved.gateChecks?.[key] === 'boolean') parsed.gateChecks[key] = saved.gateChecks[key];
           }
         }
         installParsedLog(markdown, parsed);
-        if (saved.version !== 2) state.metadataDirty = true;
+        if (saved.version !== 2) {
+          state.metadataDirty = true;
+          showToast('이전 백업을 복원했습니다. 예정 시각과 자동 체크 항목은 실제 수행 여부를 다시 확인해 주세요.');
+        }
         if (state.days.some(d => d.id === saved.selectedDayId)) state.selectedDayId = saved.selectedDayId;
         if ([1, 2, 3, 4, 'all'].includes(saved.selectedWeekTab)) state.selectedWeekTab = saved.selectedWeekTab;
         return true;
