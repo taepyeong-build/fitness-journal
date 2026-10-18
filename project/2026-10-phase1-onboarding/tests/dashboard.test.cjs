@@ -104,6 +104,21 @@ test('planned times and unrelated edits never manufacture compliance or a Green 
   assert.equal(app.run('computeWeekAggregation(3).bedCount'), 1);
 });
 
+test('a lone weight or completion edit keeps planned times unrecorded after browser and file restore', () => {
+  for (const [field, value] of [['weight', '98.0'], ['sessionDone', true]]) {
+    const app = dashboard();
+    app.run(`selectDay('11-01'); updateDayField('${field}', ${JSON.stringify(value)});`);
+    const exported = app.export();
+    assert.equal(app.run('loadStateFromLocalStorage()'), true);
+    assert.equal(app.run('computeWeekAggregation(3).mealCount'), 0, field);
+    assert.equal(app.run('computeWeekAggregation(3).bedCount'), 0, field);
+    const imported = dashboard();
+    imported.import(exported);
+    assert.equal(imported.run('computeWeekAggregation(3).mealCount'), 0, field);
+    assert.equal(imported.run('computeWeekAggregation(3).bedCount'), 0, field);
+  }
+});
+
 test('readiness covers the protocol triggers and preserves a recorded light on memo edits', () => {
   const app = dashboard();
   app.run("updateDayField('memo', '회고'); updateSupp('s2', true);");

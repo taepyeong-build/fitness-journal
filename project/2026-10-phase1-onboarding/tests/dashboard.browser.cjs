@@ -67,6 +67,12 @@ async function main() {
     await page.getByRole('button', { name: 'W3', exact: true }).click();
     assert.equal(await page.locator('#day-select').inputValue(), '11-01');
     assert.equal(await page.evaluate(() => computeWeekAggregation(3).bedCount), 0);
+    await page.locator('#inp-weight').fill('98.0');
+    await page.locator('#inp-weight').press('Tab');
+    await page.reload();
+    assert.equal(await page.evaluate(() => computeWeekAggregation(3).bedCount), 0);
+    assert.equal(await page.evaluate(() => computeWeekAggregation(3).mealCount), 0);
+    check('a weight-only backup keeps future meal and bedtime plans unrecorded');
     await page.locator('#inp-nrs').fill('4');
     await page.locator('#inp-nrs').press('Tab');
     assert.equal(await page.evaluate(() => evaluateReadiness(getActiveDay()).grade), 'red');
